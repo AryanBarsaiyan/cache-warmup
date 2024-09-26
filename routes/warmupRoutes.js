@@ -68,7 +68,7 @@ router.get('/files', (req, res) => {
 
             return {
                 filename: file,
-                url: `http://localhost:${process.env.PORT}/public/reports/${file}`,
+                url: `${process.env.WEB_URL}:${process.env.PORT}/public/reports/${file}`,
                 creationDate
             };
         });

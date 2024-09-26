@@ -113,7 +113,7 @@ async function processUrlsSequentially(urls, logData) {
         generateCSV(filename, csvData);
         logData.push(`Completed the first warmup process for all URLs.`);
         //share the url of csv generated in the public folder
-        logData.push(`CSV file generated: http://localhost:${process.env.PORT}/public/reports/${filename}.csv`);
+        logData.push(`CSV file generated: ${process.env.WEB_URL}:${process.env.PORT}/public/reports/${filename}.csv`);
         await sendLogToSlack(logData);
 
         nitroCacheMiss = [...new Set(nitroCacheMiss)];
@@ -142,7 +142,7 @@ async function processUrlsSequentially(urls, logData) {
             const filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_nitro_warmup_report`;
             generateCSV(filename, csvData);
             logData.push(`Completed the nitro warmup process for all URLs.`);
-            logData.push(`CSV file generated: http://localhost:${process.env.PORT}/public/reports/${filename}.csv`);
+            logData.push(`CSV file generated: ${process.env.WEB_URL}:${process.env.PORT}/public/reports/${filename}.csv`);
             await sendLogToSlack(logData);
         }
 
@@ -172,7 +172,7 @@ async function processUrlsSequentially(urls, logData) {
             const filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_cloudfront_warmup_report`;
             generateCSV(filename, csvData);
             logData.push(`Completed the cloudfront warmup process for all URLs.`);
-            logData.push(`CSV file generated: http://localhost:${process.env.PORT}/public/reports/${filename}.csv`);
+            logData.push(`CSV file generated: ${process.env.WEB_URL}:${process.env.PORT}/public/reports/${filename}.csv`);
             await sendLogToSlack(logData);
         }
 
