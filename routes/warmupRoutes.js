@@ -2,7 +2,7 @@ const express = require('express');
 const { processUrlsSequentially } = require('../utils');
 const { fetchAllSitemaps } = require('../sitemapFetcher');
 const { sendLogToSlack, deleteOldFiles } = require('../helpers');
-const fs = require('fs');
+const fs = require('fs').promises; // Use the promises API
 const path = require('path');
 const router = express.Router();
 
@@ -32,10 +32,12 @@ router.post('/global', async (req, res) => {
         let sitemap_urls = require('../sitemap_urls.json');
         const urls = sitemap_urls.url;
         console.log("Got total urls from the sitemap: ", urls.length);
+        if(urls.length === 0) {
+            return res.status(200).json({ message: 'No new URLs found in the sitemap' });
+        }
         res.status(200).json({ message: `We've successfully retrieved ${urls.length} URLs from the sitemap. Processing is underway and is expected to take approximately 4 hours.` });
-        await processUrlsSequentially(urls, logData);
-        // Send the log data to Slack
-        await sendLogToSlack(logData, true);
+        await processUrlsSequentially(urls, logData, 1);
+        await sendLogToSlack(logData);
     } catch (error) {
         console.error(`Error processing the global URLs: ${error.message}`);
         return res.status(500).json({ message: 'Internal Server Error' });
@@ -88,6 +90,46 @@ router.delete('/delete-old-files', (req, res) => {
         message: 'Deleted files older than one month',
         deletedFiles: deletedFiles
     });
+});
+
+
+router.get('/sync-sitemap', async (req, res) => {
+    try {
+        // Path to the sitemap JSON file
+        const current_sitemap_path = path.join(__dirname, '../sitemap_urls.json');
+
+        // Read the current sitemap file (before updating) using fs.promises.readFile
+        const current_sitemap_data = await fs.readFile(current_sitemap_path, 'utf8');
+        const current_sitemap = JSON.parse(current_sitemap_data);
+        const current_urls = current_sitemap.url;
+
+        // Fetch and update the sitemap from the web
+        const mainSitemapUrl = process.env.MAIN_SITEMAP_URL;
+        await fetchAllSitemaps(mainSitemapUrl);
+
+        // After updating, read the new sitemap file again
+        const new_sitemap_data = await fs.readFile(current_sitemap_path, 'utf8');
+        const new_sitemap = JSON.parse(new_sitemap_data);
+        const new_urls = new_sitemap.url;
+
+        // Compare the URLs to find the differences
+        const difference_array = new_urls.filter(x => !current_urls.includes(x));
+        if(difference_array.length === 0) {
+            return res.status(200).json({ message: 'No new URLs found in the sitemap' });
+        }
+        res.status(200).json({ message: `New URLs added to the sitemap: ${difference_array.length}, we are processing them now` });
+
+        // Process the new URLs
+        const logData = [];
+        await processUrlsSequentially(difference_array, logData, 2);
+
+        // Send the log data to Slack
+        await sendLogToSlack(logData);
+
+    } catch (error) {
+        console.error(`Error processing the sitemap: ${error.message}`);
+        return res.status(500).json({ message: 'Internal Server Error' });
+    }
 });
 
 module.exports = router;

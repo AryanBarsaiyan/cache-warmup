@@ -78,7 +78,7 @@ async function warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss
     }
 }
 
-async function processUrlsSequentially(urls, logData, isGlobal = false) {
+async function processUrlsSequentially(urls, logData, isGlobal = 0) {
     let browser;
     let page;
     try {
@@ -109,8 +109,11 @@ async function processUrlsSequentially(urls, logData, isGlobal = false) {
             await sendLogToSlack(logData);
         }
         let filename ="";
-        if(isGlobal){
+        if(isGlobal === 1){
             filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_global_first_warmup_report`;
+        }else if(isGlobal === 2){
+            // sync sitemap
+            filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_syncSitemap_first_warmup_report`;
         }else{
             filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_first_warmup_report`;
         }
@@ -143,8 +146,11 @@ async function processUrlsSequentially(urls, logData, isGlobal = false) {
                 await sendLogToSlack(logData);
             }
             let filename ="";
-            if(isGlobal){
+            if(isGlobal === 1){
                 filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_global_nitro_warmup_report`;
+            }else if(isGlobal === 2){
+                // sync sitemap
+                filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_syncSitemap_nitro_warmup_report`;
             }else{
                 filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_nitro_warmup_report`;
             }
@@ -176,8 +182,11 @@ async function processUrlsSequentially(urls, logData, isGlobal = false) {
                 await sendLogToSlack(logData);
             }
             let filename ="";
-            if(isGlobal){
+            if(isGlobal === 1){
                 filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_global_cloudfront_warmup_report`;
+            }else if(isGlobal === 2){
+                // sync sitemap
+                filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_syncSitemap_cloudfront_warmup_report`;
             }else{
                 filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_cloudfront_warmup_report`;
             }
