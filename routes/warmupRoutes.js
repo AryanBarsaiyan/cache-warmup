@@ -35,7 +35,7 @@ router.post('/global', async (req, res) => {
         res.status(200).json({ message: `We've successfully retrieved ${urls.length} URLs from the sitemap. Processing is underway and is expected to take approximately 4 hours.` });
         await processUrlsSequentially(urls, logData);
         // Send the log data to Slack
-        await sendLogToSlack(logData);
+        await sendLogToSlack(logData, true);
     } catch (error) {
         console.error(`Error processing the global URLs: ${error.message}`);
         return res.status(500).json({ message: 'Internal Server Error' });

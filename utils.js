@@ -78,7 +78,7 @@ async function warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss
     }
 }
 
-async function processUrlsSequentially(urls, logData) {
+async function processUrlsSequentially(urls, logData, isGlobal = false) {
     let browser;
     let page;
     try {
@@ -108,8 +108,12 @@ async function processUrlsSequentially(urls, logData) {
             logData.push(`Processed ${cnt} URLs`);
             await sendLogToSlack(logData);
         }
-
-        const filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_first_warmup_report`;
+        let filename ="";
+        if(isGlobal){
+            filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_global_first_warmup_report`;
+        }else{
+            filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_first_warmup_report`;
+        }
         generateCSV(filename, csvData);
         logData.push(`Completed the first warmup process for all URLs.`);
         //share the url of csv generated in the public folder
@@ -138,8 +142,12 @@ async function processUrlsSequentially(urls, logData) {
                 logData.push(`Processed ${cnt} URLs`);
                 await sendLogToSlack(logData);
             }
-
-            const filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_nitro_warmup_report`;
+            let filename ="";
+            if(isGlobal){
+                filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_global_nitro_warmup_report`;
+            }else{
+                filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_nitro_warmup_report`;
+            }
             generateCSV(filename, csvData);
             logData.push(`Completed the nitro warmup process for all URLs.`);
             logData.push(`CSV file generated: ${process.env.WEB_URL}:${process.env.PORT}/public/reports/${filename}.csv`);
@@ -168,8 +176,12 @@ async function processUrlsSequentially(urls, logData) {
                 logData.push(`Processed ${cnt} URLs`);
                 await sendLogToSlack(logData);
             }
-
-            const filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_cloudfront_warmup_report`;
+            let filename ="";
+            if(isGlobal){
+                filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_global_cloudfront_warmup_report`;
+            }else{
+                filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_cloudfront_warmup_report`;
+            }
             generateCSV(filename, csvData);
             logData.push(`Completed the cloudfront warmup process for all URLs.`);
             logData.push(`CSV file generated: ${process.env.WEB_URL}:${process.env.PORT}/public/reports/${filename}.csv`);
