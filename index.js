@@ -17,7 +17,7 @@ app.use(bodyParser.json());
 // Serve static files from the "public" folder
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
-app.get('/health', (req, res) => {
+app.get('/health', validateApiKey, (req, res) => {
     res.status(200).send('Healthy');
 });
 
