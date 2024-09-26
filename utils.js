@@ -169,7 +169,6 @@ async function processUrlsSequentially(urls, logData, isGlobal = false) {
                 for (const url of chunk) {
                     cnt++;
                     console.log(`Retrying CloudFront Cache Miss URL #${cnt}: ${url}`);
-                    logData.push(`Retrying CloudFront Cache Miss URL #${cnt}: ${url}`);
                     await warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData);
                     await delay(100);
                 }
