@@ -79,4 +79,50 @@ async function sendLogToSlack(logData) {
     }
 }
 
-module.exports = { chunkArray, delay, sendLogToSlack,generateCSV };
+const deleteOldFiles = (directory) => {
+    const oneMonth = process.env.EXPIRE_TIME || 30 * 24 * 60 * 60 * 1000; // Default to 30 days
+    const now = Date.now();
+    const deletedFiles = [];
+
+    // Read all files in the directory
+    fs.readdir(directory, (err, files) => {
+        if (err) {
+            console.error(`Error reading directory: ${err}`);
+            return;
+        }
+
+        files.forEach(file => {
+            const filePath = path.join(directory, file);
+
+            // Get file stats to check the last modified time
+            fs.stat(filePath, (err, stats) => {
+                if (err) {
+                    console.error(`Error getting stats for file: ${filePath} - ${err}`);
+                    return;
+                }
+
+                const fileAge = now - stats.mtimeMs; // Time since the file was modified
+
+                //log the file age in minutes
+                console.log(`File: ${filePath} is ${fileAge / 1000 / 60} minutes old`);
+
+                if (fileAge > oneMonth) {
+                    // Delete the file if it's older than one month
+                    fs.unlink(filePath, (err) => {
+                        if (err) {
+                            console.error(`Error deleting file: ${filePath} - ${err}`);
+                        } else {
+                            console.log(`Deleted file: ${filePath}`);
+                            deletedFiles.push(file);
+                        }
+                    });
+                }
+            });
+        });
+    });
+
+    return deletedFiles;
+};
+
+
+module.exports = { chunkArray, delay, sendLogToSlack,generateCSV,deleteOldFiles };

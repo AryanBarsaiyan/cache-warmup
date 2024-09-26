@@ -1,7 +1,7 @@
 const express = require('express');
 const { processUrlsSequentially } = require('../utils');
 const { fetchAllSitemaps } = require('../sitemapFetcher');
-const { sendLogToSlack } = require('../helpers');
+const { sendLogToSlack, deleteOldFiles } = require('../helpers');
 const fs = require('fs');
 const path = require('path');
 const router = express.Router();
@@ -74,6 +74,19 @@ router.get('/files', (req, res) => {
         });
 
         res.json(fileData);
+    });
+});
+
+router.delete('/delete-old-files', (req, res) => {
+    const directoryPath = path.join(__dirname, '../public/reports');
+
+    // Call the function to delete old files
+    const deletedFiles = deleteOldFiles(directoryPath);
+
+    // Respond to the client with the list of deleted files
+    res.json({
+        message: 'Deleted files older than one month',
+        deletedFiles: deletedFiles
     });
 });
 
