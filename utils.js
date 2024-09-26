@@ -103,6 +103,7 @@ async function processUrlsSequentially(urls, logData) {
                 cnt++;
                 console.log(`Processing URL #${cnt}: ${url}`);
                 await warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData);
+                await delay(100);
             }
             logData.push(`Processed ${cnt} URLs`);
             await sendLogToSlack(logData);
@@ -132,6 +133,7 @@ async function processUrlsSequentially(urls, logData) {
                     console.log(`Retrying Nitro Cache Miss URL #${cnt}: ${url}`);
                     // logData.push(`Retrying Nitro Cache Miss URL #${cnt}: ${url}`);
                     await warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData);
+                    await delay(100);
                 }
                 logData.push(`Processed ${cnt} URLs`);
                 await sendLogToSlack(logData);
@@ -161,6 +163,7 @@ async function processUrlsSequentially(urls, logData) {
                     console.log(`Retrying CloudFront Cache Miss URL #${cnt}: ${url}`);
                     logData.push(`Retrying CloudFront Cache Miss URL #${cnt}: ${url}`);
                     await warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData);
+                    await delay(100);
                 }
                 logData.push(`Processed ${cnt} URLs`);
                 await sendLogToSlack(logData);
