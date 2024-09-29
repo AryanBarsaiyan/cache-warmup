@@ -27,18 +27,23 @@ router.post('/page', async (req, res) => {
 router.post('/global', async (req, res) => {
     try {
         const logData = [];
-        const mainSitemapUrl = process.env.MAIN_SITEMAP_URL;
+        let mainSitemapUrl = process.env.MAIN_SITEMAP_URL;
+        //check if we are getting the sitemap urls from the request
+        if(req.body.sitemapUrl) {
+            mainSitemapUrl = req.body.sitemapUrl;
+        }
+
         await fetchAllSitemaps(mainSitemapUrl);
         let sitemap_urls = require('../sitemap_urls.json');
         const urls = sitemap_urls.url;
-        // let skip_urls_map = require('../pageDisableByNitroPack.json');
-        // let skip_urls = skip_urls_map.url;
-        // urls = urls.filter(url => !skip_urls.includes(url));
+        let drop_urls_map = require('../pageDisableByNitroPack.json');
+        let drop_urls = drop_urls_map.urls;
+        urls = urls.filter(url => !drop_urls.includes(url));
         console.log("Got total urls from the sitemap: ", urls.length);
         if(urls.length === 0) {
             return res.status(200).json({ message: 'No new URLs found in the sitemap' });
         }
-        res.status(200).json({ message: `We've successfully retrieved ${urls.length} URLs from the sitemap. Processing is underway and is expected to take approximately 4 hours.` });
+        res.status(200).json({ message: `We've successfully retrieved ${urls.length} URLs from the sitemap ${mainSitemapUrl}. Processing is underway and is expected to take approximately 8 hours.` });
         await processUrlsSequentially(urls, logData, 1);
         await sendLogToSlack(logData);
     } catch (error) {

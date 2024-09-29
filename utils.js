@@ -29,10 +29,6 @@ async function warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss
                 //round of the ttfb to 4 decimal places
                 ttfb = Math.round(ttfb * 10000) / 10000;
 
-                //can we get the page load time as well?
-
-
-
                 console.log(`Status: ${status}`);
                 console.log('CloudFront-Cache-Status:', headers['x-cache'] || 'N/A');
                 console.log('Nitro-Cache-Status:', headers['x-nitro-cache'] || 'N/A');
@@ -86,7 +82,7 @@ async function processUrlsSequentially(urls, logData, isGlobal = 0) {
             args: [
                 '--no-sandbox', 
                 '--disable-setuid-sandbox',
-                '--disable-gpu', // Disable GPU, no need for it in EC2
+                '--disable-gpu', 
             ],
             headless: true
         });
@@ -114,7 +110,6 @@ async function processUrlsSequentially(urls, logData, isGlobal = 0) {
                 };
                 await delay(100);
             }
-            //2min delay
             await delay(120000); // 2 minutes
             logData.push(`Processed ${cnt} URLs`);
             await sendLogToSlack(logData);
@@ -140,7 +135,7 @@ async function processUrlsSequentially(urls, logData, isGlobal = 0) {
             logData.push(`Processing Nitro Cache Miss URLs: ${nitroCacheMiss.length} URLs`);
             logData.push(`Waiting for 5 minutes before processing Nitro Cache Miss URLs`);
             await sendLogToSlack(logData);
-            // await delay(300000);
+            await delay(300000);
 
             urlChunks = chunkArray(nitroCacheMiss, 500);
             cnt = 0;
@@ -149,7 +144,6 @@ async function processUrlsSequentially(urls, logData, isGlobal = 0) {
                 for (const url of chunk) {
                     cnt++;
                     console.log(`Retrying Nitro Cache Miss URL #${cnt}: ${url}`);
-                    // logData.push(`Retrying Nitro Cache Miss URL #${cnt}: ${url}`);
                     try{
                         await warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData);
                     }catch(e){
@@ -182,7 +176,7 @@ async function processUrlsSequentially(urls, logData, isGlobal = 0) {
             logData.push(`Processing CloudFront Cache Miss URLs: ${cloudFrontCacheMiss.length} URLs`);
             logData.push(`Waiting for 5 minutes before processing CloudFront Cache Miss URLs`);
             await sendLogToSlack(logData);
-            // await delay(300000);
+            await delay(300000);
 
             urlChunks = chunkArray(cloudFrontCacheMiss, 500);
             cnt = 0;

@@ -3,3 +3,4 @@ node_modules
 public/reports/*
 .env
 sitemap_urls.json
+pageDisableByNitroPack.json
