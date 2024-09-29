@@ -31,6 +31,9 @@ router.post('/global', async (req, res) => {
         await fetchAllSitemaps(mainSitemapUrl);
         let sitemap_urls = require('../sitemap_urls.json');
         const urls = sitemap_urls.url;
+        let skip_urls_map = require('../pageDisableByNitroPack.json');
+        let skip_urls = skip_urls_map.url;
+        urls = urls.filter(url => !skip_urls.includes(url));
         console.log("Got total urls from the sitemap: ", urls.length);
         if(urls.length === 0) {
             return res.status(200).json({ message: 'No new URLs found in the sitemap' });

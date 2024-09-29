@@ -63,7 +63,7 @@ async function warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss
             }
         });
 
-        await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 180000 });
 
     } catch (error) {
         console.error(`Error warming up URL: ${url}, Error: ${error.message}`);
@@ -83,8 +83,18 @@ async function processUrlsSequentially(urls, logData, isGlobal = 0) {
     let page;
     try {
         browser = await puppeteer.launch({
-            args: ['--no-sandbox', '--disable-setuid-sandbox'],
-            headless: true, 
+            args: [
+                '--no-sandbox', 
+                '--disable-setuid-sandbox',
+                '--disable-gpu', // Disable GPU, no need for it in EC2
+                '--single-process', // Reduce overhead by running everything in one process
+                '--disable-dev-shm-usage', // Useful in cloud environments with limited shared memory
+                '--headless', // Ensure headless mode for reduced resource consumption
+                '--remote-debugging-port=9222', // Optional, for debugging in cloud environments
+                '--disable-software-rasterizer', // Reduces rasterization overhead in the headless browser
+                '--disable-background-timer-throttling', // Keeps timers running efficiently
+            ],
+            headless: true
         });
         page = await browser.newPage();
         
@@ -102,7 +112,12 @@ async function processUrlsSequentially(urls, logData, isGlobal = 0) {
             for (const url of chunk) {
                 cnt++;
                 console.log(`Processing URL #${cnt}: ${url}`);
-                await warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData);
+                try{
+                    await warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData);
+                }catch(e){
+                    console.log(`Error warming up URL: ${url}, Error: ${e.message}`);
+                    logData.push(`Error warming up URL: ${url}, Error: ${e.message}`);
+                };
                 await delay(100);
             }
             logData.push(`Processed ${cnt} URLs`);
@@ -139,7 +154,12 @@ async function processUrlsSequentially(urls, logData, isGlobal = 0) {
                     cnt++;
                     console.log(`Retrying Nitro Cache Miss URL #${cnt}: ${url}`);
                     // logData.push(`Retrying Nitro Cache Miss URL #${cnt}: ${url}`);
-                    await warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData);
+                    try{
+                        await warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData);
+                    }catch(e){
+                        console.log(`Error warming up URL: ${url}, Error: ${e.message}`);
+                        logData.push(`Error warming up URL: ${url}, Error: ${e.message}`);
+                    };
                     await delay(100);
                 }
                 logData.push(`Processed ${cnt} URLs`);
@@ -175,7 +195,12 @@ async function processUrlsSequentially(urls, logData, isGlobal = 0) {
                 for (const url of chunk) {
                     cnt++;
                     console.log(`Retrying CloudFront Cache Miss URL #${cnt}: ${url}`);
-                    await warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData);
+                    try{
+                        await warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData);
+                    }catch(e){
+                        console.log(`Error warming up URL: ${url}, Error: ${e.message}`);
+                        logData.push(`Error warming up URL: ${url}, Error: ${e.message}`);
+                    };
                     await delay(100);
                 }
                 logData.push(`Processed ${cnt} URLs`);
