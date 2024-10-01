@@ -59,7 +59,7 @@ async function warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss
             }
         });
         //10 minutes timeout
-        await page.goto(url, { waitUntil: 'networkidle2', timeout: 600000 }); // 10 minutes
+        await page.goto(url, { waitUntil: 'networkidle0', timeout: 600000 }); // 10 minutes
 
     } catch (error) {
         console.error(`Error warming up URL: ${url}, Error: ${error.message}`);
@@ -110,9 +110,9 @@ async function processUrlsSequentially(urls, logData, isGlobal = 0) {
                 };
                 await delay(100);
             }
-            await delay(120000); // 2 minutes
             logData.push(`Processed ${cnt} URLs`);
             await sendLogToSlack(logData);
+            await delay(120000); // 2 minutes
         }
         let filename ="";
         if(isGlobal === 1){
@@ -133,7 +133,7 @@ async function processUrlsSequentially(urls, logData, isGlobal = 0) {
         if (nitroCacheMiss.length > 0) {
             console.log("Processing Nitro Cache Miss URLs");
             logData.push(`Processing Nitro Cache Miss URLs: ${nitroCacheMiss.length} URLs`);
-            logData.push(`Waiting for 5 minutes before processing Nitro Cache Miss URLs`);
+            logData.push(`Waiting for 30 minutes before processing Nitro Cache Miss URLs`);
             await sendLogToSlack(logData);
             await delay(300000);
 
@@ -154,6 +154,8 @@ async function processUrlsSequentially(urls, logData, isGlobal = 0) {
                 }
                 logData.push(`Processed ${cnt} URLs`);
                 await sendLogToSlack(logData);
+                //wait for 2 minutes
+                await delay(120000); // 2 minutes
             }
             let filename ="";
             if(isGlobal === 1){
@@ -174,7 +176,7 @@ async function processUrlsSequentially(urls, logData, isGlobal = 0) {
         if (cloudFrontCacheMiss.length > 0) {
             console.log("Processing CloudFront Cache Miss URLs");
             logData.push(`Processing CloudFront Cache Miss URLs: ${cloudFrontCacheMiss.length} URLs`);
-            logData.push(`Waiting for 5 minutes before processing CloudFront Cache Miss URLs`);
+            logData.push(`Waiting for 30 minutes before processing CloudFront Cache Miss URLs`);
             await sendLogToSlack(logData);
             await delay(300000);
 
@@ -195,6 +197,8 @@ async function processUrlsSequentially(urls, logData, isGlobal = 0) {
                 }
                 logData.push(`Processed ${cnt} URLs`);
                 await sendLogToSlack(logData);
+                //wait for 2 minutes
+                await delay(120000); // 2 minutes
             }
             let filename ="";
             if(isGlobal === 1){
