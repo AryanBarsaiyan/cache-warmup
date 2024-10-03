@@ -35,7 +35,7 @@ router.post('/global', async (req, res) => {
 
         await fetchAllSitemaps(mainSitemapUrl);
         let sitemap_urls = require('../sitemap_urls.json');
-        const urls = sitemap_urls.url;
+        let urls = sitemap_urls.url;
         let drop_urls_map = require('../pageDisableByNitroPack.json');
         let drop_urls = drop_urls_map.urls;
         urls = urls.filter(url => !drop_urls.includes(url));
