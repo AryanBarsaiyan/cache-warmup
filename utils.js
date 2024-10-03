@@ -9,13 +9,6 @@ async function warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss
         let dnsLookupTime = 0;
         let pageLoadTime = 0;
 
-        // Set custom headers and user-agent to identify bot traffic
-        await page.setExtraHTTPHeaders({
-            'X-Bot': 'Puppeteer'
-        });
-
-        await page.setUserAgent('Mozilla/5.0 (compatible; PuppeteerBot/1.0)');
-
         // Capture headers from the page response
         page.on('response', async (response) => {
             if (response.url() === url && response.request().resourceType() === 'document') {
@@ -65,9 +58,7 @@ async function warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss
                 }
             }
         });
-        //10 minutes timeout
-        // await page.goto(url, { waitUntil: 'networkidle2', timeout: 600000 }); // 10 minutes
-        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 600000 }); // 10 minutes
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 120000 }); // 3 minutes
 
     } catch (error) {
         console.error(`Error warming up URL: ${url}, Error: ${error.message}`);
@@ -95,6 +86,12 @@ async function processUrlsSequentially(urls, logData, isGlobal = 0) {
             headless: true
         });
         page = await browser.newPage();
+
+        await page.setExtraHTTPHeaders({
+            'X-Bot': 'Puppeteer'
+        });
+        await page.setUserAgent('Mozilla/5.0 (compatible; PuppeteerBot/1.0)');
+        
         
         console.log(`Total URLs: ${urls.length}`);
         logData.push(`Total URLs: ${urls.length}`);
@@ -116,7 +113,7 @@ async function processUrlsSequentially(urls, logData, isGlobal = 0) {
                     console.log(`Error warming up URL: ${url}, Error: ${e.message}`);
                     logData.push(`Error warming up URL: ${url}, Error: ${e.message}`);
                 };
-                await delay(300);
+                await delay(100);
             }
             logData.push(`Processed ${cnt} URLs`);
             await sendLogToSlack(logData);
@@ -158,7 +155,7 @@ async function processUrlsSequentially(urls, logData, isGlobal = 0) {
                         console.log(`Error warming up URL: ${url}, Error: ${e.message}`);
                         logData.push(`Error warming up URL: ${url}, Error: ${e.message}`);
                     };
-                    await delay(300);
+                    await delay(100);
                 }
                 logData.push(`Processed ${cnt} URLs`);
                 await sendLogToSlack(logData);
