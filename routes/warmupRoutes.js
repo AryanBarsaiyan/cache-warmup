@@ -36,9 +36,6 @@ router.post('/global', async (req, res) => {
         await fetchAllSitemaps(mainSitemapUrl);
         let sitemap_urls = require('../sitemap_urls.json');
         let urls = sitemap_urls.url;
-        if(urls.length === 0) {
-            return res.status(200).json({ message: 'No new URLs found in the sitemap' });
-        }
         res.status(200).json({ message: `We've successfully retrieved ${urls.length} URLs from the sitemap ${mainSitemapUrl}. Processing is underway and is expected to take approximately 8 hours.` });
         await processUrlsSequentially(urls, logData, 1);
         await sendLogToSlack(logData);

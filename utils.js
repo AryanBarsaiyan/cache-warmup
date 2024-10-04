@@ -138,9 +138,9 @@ async function processUrlsSequentially(urls, logData, isGlobal = 0) {
         if (nitroCacheMiss.length > 0) {
             console.log(`Processing Nitro Cache Miss URLs: ${nitroCacheMiss.length} URLs`);
             logData.push(`Processing Nitro Cache Miss URLs: ${nitroCacheMiss.length} URLs`);
-            logData.push(`Waiting for 30 minutes before processing Nitro Cache Miss URLs`);
+            logData.push(`Waiting for 15 minutes before processing Nitro Cache Miss URLs`);
             await sendLogToSlack(logData);
-            // await delay(300000);
+            await delay(900000); // 15 minutes
 
             urlChunks = chunkArray(nitroCacheMiss, 500);
             cnt = 0;
@@ -181,9 +181,9 @@ async function processUrlsSequentially(urls, logData, isGlobal = 0) {
         if (cloudFrontCacheMiss.length > 0) {
             console.log(`Processing CloudFront Cache Miss URLs: ${cloudFrontCacheMiss.length} URLs`);
             logData.push(`Processing CloudFront Cache Miss URLs: ${cloudFrontCacheMiss.length} URLs`);
-            logData.push(`Waiting for 30 minutes before processing CloudFront Cache Miss URLs`);
+            logData.push(`Waiting for 15 minutes before processing CloudFront Cache Miss URLs`);
             await sendLogToSlack(logData);
-            // await delay(300000);
+            await delay(900000); // 15 minutes
 
             urlChunks = chunkArray(cloudFrontCacheMiss, 500);
             cnt = 0;
