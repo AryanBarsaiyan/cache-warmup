@@ -140,7 +140,7 @@ async function processUrlsSequentially(urls, logData, isGlobal = 0) {
             logData.push(`Processing Nitro Cache Miss URLs: ${nitroCacheMiss.length} URLs`);
             logData.push(`Waiting for 30 minutes before processing Nitro Cache Miss URLs`);
             await sendLogToSlack(logData);
-            await delay(300000);
+            // await delay(300000);
 
             urlChunks = chunkArray(nitroCacheMiss, 500);
             cnt = 0;
@@ -183,7 +183,7 @@ async function processUrlsSequentially(urls, logData, isGlobal = 0) {
             logData.push(`Processing CloudFront Cache Miss URLs: ${cloudFrontCacheMiss.length} URLs`);
             logData.push(`Waiting for 30 minutes before processing CloudFront Cache Miss URLs`);
             await sendLogToSlack(logData);
-            await delay(300000);
+            // await delay(300000);
 
             urlChunks = chunkArray(cloudFrontCacheMiss, 500);
             cnt = 0;
@@ -198,7 +198,7 @@ async function processUrlsSequentially(urls, logData, isGlobal = 0) {
                         console.log(`Error warming up URL: ${url}, Error: ${e.message}`);
                         logData.push(`Error warming up URL: ${url}, Error: ${e.message}`);
                     };
-                    await delay(300);
+                    await delay(100);
                 }
                 logData.push(`Processed ${cnt} URLs`);
                 await sendLogToSlack(logData);

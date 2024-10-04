@@ -4,3 +4,5 @@ public/reports/*
 .env
 sitemap_urls.json
 pageDisableByNitroPack.json
+unique_urls.json
+404_urls.json

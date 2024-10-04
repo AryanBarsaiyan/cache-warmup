@@ -16,7 +16,7 @@ router.post('/page', async (req, res) => {
         // Log data storage
         const logData = [];
         //wants to process the urls after request is completed
-        res.status(200).json({ message: 'URLs are being processed' });
+        res.status(200).json({ message: `URLs are being processed. Total URLs: ${urls.length}` });
         await processUrlsSequentially(urls, logData);
     } catch (error) {
         console.error(`Error processing the URLs: ${error.message}`);
@@ -36,6 +36,9 @@ router.post('/global', async (req, res) => {
         await fetchAllSitemaps(mainSitemapUrl);
         let sitemap_urls = require('../sitemap_urls.json');
         let urls = sitemap_urls.url;
+        //add the unique urls to the urls array
+        let unique_urls = require('../unique_urls.json');
+        urls = urls.concat(unique_urls);  
         let drop_urls_map = require('../pageDisableByNitroPack.json');
         let drop_urls = drop_urls_map.urls;
         urls = urls.filter(url => !drop_urls.includes(url));
