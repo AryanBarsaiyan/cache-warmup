@@ -64,7 +64,7 @@ async function warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss
         });
 
         // Navigate to the URL but limit wait time to 20 seconds without causing an error on timeout
-        const navigationPromise = page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 }); // 20 seconds
+        const navigationPromise = page.goto(url, { waitUntil: 'domcontentloaded', timeout: 120000 }); // 2 minutes
 
         // Create a timeout promise for 20 seconds
         const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 20000));
