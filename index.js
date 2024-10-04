@@ -4,6 +4,9 @@ const dotenv = require('dotenv');
 const path = require('path'); 
 const warmupRoutes = require('./routes/warmupRoutes');
 const { validateApiKey } = require('./middleware');
+const cors = require('cors');
+
+
 
 // Load environment variables
 dotenv.config();
@@ -11,6 +14,7 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3000;
 
+app.use(cors()); // Enable CORS for all routes
 // Middleware to parse JSON requests
 app.use(bodyParser.json());
 
