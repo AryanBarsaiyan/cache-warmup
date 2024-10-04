@@ -4,10 +4,12 @@ const { chunkArray, delay, sendLogToSlack, generateCSV } = require('./helpers');
 
 
 async function warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData, retryCount = 0) {
+    const maxRetries = 3; // Set the maximum number of retries
     try {
         let ttfb = 0;
         let dnsLookupTime = 0;
         let pageLoadTime = 0;
+        let dataCaptured = false; // Flag to track if necessary data is captured
 
         // Capture headers from the page response
         page.on('response', async (response) => {
@@ -22,17 +24,17 @@ async function warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss
                     dnsLookupTime = Math.round(dnsLookupTime * 10000) / 10000;  // Round to 4 decimal places
                 }
 
-                if(timing) {
-                    ttfb = timing.receiveHeadersStart - timing.sendEnd; 
+                if (timing) {
+                    ttfb = timing.receiveHeadersStart - timing.sendEnd;
                 }
 
-                //round of the ttfb to 4 decimal places
+                // Round off the TTFB to 4 decimal places
                 ttfb = Math.round(ttfb * 10000) / 10000;
 
                 console.log(`Status: ${status}`);
                 console.log('CloudFront-Cache-Status:', headers['x-cache'] || 'N/A');
                 console.log('Nitro-Cache-Status:', headers['x-nitro-cache'] || 'N/A');
-                console.log('x-nitro-disables', headers['x-nitro-disabled'] || 'N/A');
+                console.log('x-nitro-disabled:', headers['x-nitro-disabled'] || 'N/A');
                 console.log('TTFB:', ttfb);
 
                 let timestamp = new Date().toISOString();
@@ -48,7 +50,9 @@ async function warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss
                 };
 
                 csvData.push(data);
-                if(status === 200 && !headers['x-nitro-disabled']) {
+                dataCaptured = true; // Set flag to true when data is captured
+
+                if (status === 200 && !headers['x-nitro-disabled']) {
                     if (headers['x-cache'] === 'Miss from cloudfront') {
                         cloudFrontCacheMiss.push(url);
                     }
@@ -58,20 +62,41 @@ async function warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss
                 }
             }
         });
-        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 120000 }); // 3 minutes
+
+        // Navigate to the URL but limit wait time to 20 seconds without causing an error on timeout
+        const navigationPromise = page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 }); // 20 seconds
+
+        // Create a timeout promise for 20 seconds
+        const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 20000));
+
+        // Use Promise.race to wait for either page navigation or timeout, whichever comes first
+        await Promise.race([navigationPromise, timeoutPromise]);
+
+        // If data is not captured, retry the request
+        if (!dataCaptured) {
+            console.log(`Data not captured for URL: ${url} after 15 seconds. Retrying...`);
+
+            if (retryCount < maxRetries) {
+                await warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData, retryCount + 1);
+            } else {
+                console.error(`Failed to capture data for URL after ${maxRetries} attempts: ${url}`);
+                logData.push(`Failed to capture data for URL after ${maxRetries} attempts: ${url}`);
+            }
+        }
 
     } catch (error) {
         console.error(`Error warming up URL: ${url}, Error: ${error.message}`);
         logData.push(`Error warming up URL: ${url}, Error: ${error.message}`);
 
-        if (retryCount < 3) {
+        if (retryCount < maxRetries) {
             console.log(`Retrying URL: ${url}, Attempt: ${retryCount + 1}`);
             await warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData, retryCount + 1);
         } else {
-            console.error(`Failed to warmup URL after 3 attempts: ${url}`);
+            console.error(`Failed to warm up URL after ${maxRetries} attempts: ${url}`);
         }
     }
 }
+
 
 async function processUrlsSequentially(urls, logData, isGlobal = 0) {
     let browser;
