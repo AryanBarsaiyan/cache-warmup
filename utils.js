@@ -65,7 +65,7 @@ async function warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss
 
         // Navigate to the URL but limit wait time to 20 seconds without causing an error on timeout
         try{
-            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 }); //timeout 20 seconds
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 10000 }); //timeout 10 seconds
         }catch(e){
             //check if the data is captured then dont throw error
             if(!dataCaptured){
