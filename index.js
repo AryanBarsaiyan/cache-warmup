@@ -26,7 +26,7 @@ app.get('/health', validateApiKey, (req, res) => {
 });
 
 // Routes
-app.use('/warmup', warmupRoutes);
+app.use('/warmup', validateApiKey, warmupRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
