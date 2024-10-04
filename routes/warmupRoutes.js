@@ -33,6 +33,8 @@ router.post('/global', async (req, res) => {
             mainSitemapUrl = req.body.sitemapUrl;
         }
 
+        console.log(`Processing the global URLs from the sitemap: ${mainSitemapUrl}`);
+
         await fetchAllSitemaps(mainSitemapUrl);
         let sitemap_urls = require('../sitemap_urls.json');
         let urls = sitemap_urls.url;
