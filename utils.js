@@ -64,30 +64,17 @@ async function warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss
         });
 
         // Navigate to the URL but limit wait time to 20 seconds without causing an error on timeout
-        const navigationPromise = page.goto(url, { waitUntil: 'domcontentloaded', timeout: 120000 }); // 2 minutes
-
-        // Create a timeout promise for 20 seconds
-        const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 20000));
-
-        // Use Promise.race to wait for either page navigation or timeout, whichever comes first
-        await Promise.race([navigationPromise, timeoutPromise]);
-
-        // If data is not captured, retry the request
-        if (!dataCaptured) {
-            console.log(`Data not captured for URL: ${url} after 15 seconds. Retrying...`);
-
-            if (retryCount < maxRetries) {
-                await warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData, retryCount + 1);
-            } else {
-                console.error(`Failed to capture data for URL after ${maxRetries} attempts: ${url}`);
-                logData.push(`Failed to capture data for URL after ${maxRetries} attempts: ${url}`);
-            }
-        }
+        page.goto(url, { waitUntil: 'domcontentloaded', timeout: 120000 }); // 2 minutes
 
     } catch (error) {
         console.error(`Error warming up URL: ${url}, Error: ${error.message}`);
         logData.push(`Error warming up URL: ${url}, Error: ${error.message}`);
 
+        // check if data is captured and retry if necessary
+        if (dataCaptured) {
+            console.log(`Data captured`);
+            return;
+        }
         if (retryCount < maxRetries) {
             console.log(`Retrying URL: ${url}, Attempt: ${retryCount + 1}`);
             await warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData, retryCount + 1);
