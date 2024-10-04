@@ -64,17 +64,20 @@ async function warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss
         });
 
         // Navigate to the URL but limit wait time to 20 seconds without causing an error on timeout
-        page.goto(url, { waitUntil: 'domcontentloaded', timeout: 120000 }); // 2 minutes
+        try{
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 120000 }); // 2 minutes
+        }catch(e){
+            //check if the data is captured then dont throw error
+            if(!dataCaptured){
+                console.log(`Error warming up URL: ${url}, Error: ${e.message}`);
+                throw e;
+            }
+        }
 
     } catch (error) {
-        console.error(`Error warming up URL: ${url}, Error: ${error.message}`);
+        // console.error(`Error warming up URL: ${url}, Error: ${error.message}`);
         logData.push(`Error warming up URL: ${url}, Error: ${error.message}`);
 
-        // check if data is captured and retry if necessary
-        if (dataCaptured) {
-            console.log(`Data captured`);
-            return;
-        }
         if (retryCount < maxRetries) {
             console.log(`Retrying URL: ${url}, Attempt: ${retryCount + 1}`);
             await warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData, retryCount + 1);
