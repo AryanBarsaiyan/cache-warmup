@@ -26,6 +26,7 @@ router.post('/page', async (req, res) => {
 
 router.post('/global', async (req, res) => {
     try {
+        console.log('Processing the global URLs');
         const logData = [];
         let mainSitemapUrl = process.env.MAIN_SITEMAP_URL;
         //check if we are getting the sitemap urls from the request
