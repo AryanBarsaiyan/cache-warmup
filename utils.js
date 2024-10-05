@@ -1,15 +1,17 @@
-const puppeteer = require('puppeteer');
+const { chromium } = require('playwright');
 const axios = require('axios');
 const { chunkArray, delay, sendLogToSlack, generateCSV } = require('./helpers');
 
-
-async function warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData, retryCount = 0) {
+async function warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData, retryCount = 0) {
     const maxRetries = 3; // Set the maximum number of retries
+    let page;
     try {
         let ttfb = 0;
         let dnsLookupTime = 0;
-        let pageLoadTime = 0;
         let dataCaptured = false; // Flag to track if necessary data is captured
+
+        // Open a new page for every URL
+        page = await browser.newPage();
 
         // Capture headers from the page response
         page.on('response', async (response) => {
@@ -25,7 +27,7 @@ async function warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss
                 }
 
                 if (timing) {
-                    ttfb = timing.receiveHeadersStart - timing.sendEnd;
+                    ttfb = timing.receiveHeadersEnd - timing.sendStart;
                 }
 
                 // Round off the TTFB to 4 decimal places
@@ -60,58 +62,57 @@ async function warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss
                         nitroCacheMiss.push(url);
                     }
                 }
+
+                // Close the page as soon as we get the required data
+                await page.close();
             }
         });
 
-        // Navigate to the URL but limit wait time to 20 seconds without causing an error on timeout
-        try{
-            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 10000 }); //timeout 10 seconds
-        }catch(e){
-            //check if the data is captured then dont throw error
-            if(!dataCaptured){
+        try {
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 }); //timeout 1 minute
+        } catch (e) {
+            // Check if the data is captured, then don't throw an error
+            console.log('dataCaptured:', dataCaptured);
+            if (!dataCaptured) {
                 console.log(`Error warming up URL: ${url}, Error: ${e.message}`);
                 throw e;
             }
         }
 
-    } catch (error) {
-        // console.error(`Error warming up URL: ${url}, Error: ${error.message}`);
-        logData.push(`Error warming up URL: ${url}, Error: ${error.message}`);
+        // Close the page if not closed already (in case no data is captured)
+        if (!dataCaptured && page) {
+            await page.close();
+        }
 
+    } catch (error) {
+        logData.push(`Error warming up URL: ${url}, Error: ${error.message}`);
         if (retryCount < maxRetries) {
             console.log(`Retrying URL: ${url}, Attempt: ${retryCount + 1}`);
-            await warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData, retryCount + 1);
+            await warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData, retryCount + 1);
         } else {
             console.error(`Failed to warm up URL after ${maxRetries} attempts: ${url}`);
+            if (page) await page.close();
         }
     }
 }
 
-
 async function processUrlsSequentially(urls, logData, isGlobal = 0) {
     let browser;
-    let page;
     try {
-        browser = await puppeteer.launch({
+        browser = await chromium.launch({
             args: [
-                '--no-sandbox', 
+                '--no-sandbox',
                 '--disable-setuid-sandbox',
-                '--disable-gpu', 
+                '--disable-gpu',
             ],
             headless: true
         });
-        page = await browser.newPage();
 
-        await page.setExtraHTTPHeaders({
-            'X-Bot': 'Puppeteer'
-        });
-        await page.setUserAgent('Mozilla/5.0 (compatible; PuppeteerBot/1.0)');
-        
-        
         console.log(`Total URLs: ${urls.length}`);
         logData.push(`Total URLs: ${urls.length}`);
         logData.push(`Starting the warmup process for all URLs.`);
         await sendLogToSlack(logData);
+
         let urlChunks = chunkArray(urls, 500);
         let nitroCacheMiss = [];
         let cloudFrontCacheMiss = [];
@@ -122,17 +123,17 @@ async function processUrlsSequentially(urls, logData, isGlobal = 0) {
             for (const url of chunk) {
                 cnt++;
                 console.log(`Processing URL #${cnt}: ${url}`);
-                try{
-                    await warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData);
-                }catch(e){
+                try {
+                    await warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData);
+                } catch (e) {
                     console.log(`Error warming up URL: ${url}, Error: ${e.message}`);
                     logData.push(`Error warming up URL: ${url}, Error: ${e.message}`);
-                };
-                await delay(100);
+                }
+                await delay(100); // Adding delay to avoid overwhelming the browser
             }
             logData.push(`Processed ${cnt} URLs`);
             await sendLogToSlack(logData);
-            await delay(120000); // 2 minutes
+            await delay(120000); // Delay between chunks to avoid rate-limiting
         }
         let filename ="";
         if(isGlobal === 1){
@@ -165,7 +166,7 @@ async function processUrlsSequentially(urls, logData, isGlobal = 0) {
                     cnt++;
                     console.log(`Retrying Nitro Cache Miss URL #${cnt}: ${url}`);
                     try{
-                        await warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData);
+                        await warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData);
                     }catch(e){
                         console.log(`Error warming up URL: ${url}, Error: ${e.message}`);
                         logData.push(`Error warming up URL: ${url}, Error: ${e.message}`);
@@ -208,7 +209,7 @@ async function processUrlsSequentially(urls, logData, isGlobal = 0) {
                     cnt++;
                     console.log(`Retrying CloudFront Cache Miss URL #${cnt}: ${url}`);
                     try{
-                        await warmupUrl(page, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData);
+                        await warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData);
                     }catch(e){
                         console.log(`Error warming up URL: ${url}, Error: ${e.message}`);
                         logData.push(`Error warming up URL: ${url}, Error: ${e.message}`);
