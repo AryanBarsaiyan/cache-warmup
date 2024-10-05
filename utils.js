@@ -18,26 +18,11 @@ async function warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheM
             if (response.url() === url && response.request().resourceType() === 'document') {
                 const headers = response.headers();
                 const status = response.status();
-                const timing = response.timing();
-
-                // Calculate DNS Lookup Time
-                if (timing && timing.dnsEnd > -1 && timing.dnsStart > -1) {
-                    dnsLookupTime = timing.dnsEnd - timing.dnsStart;
-                    dnsLookupTime = Math.round(dnsLookupTime * 10000) / 10000;  // Round to 4 decimal places
-                }
-
-                if (timing) {
-                    ttfb = timing.receiveHeadersEnd - timing.sendStart;
-                }
-
-                // Round off the TTFB to 4 decimal places
-                ttfb = Math.round(ttfb * 10000) / 10000;
 
                 console.log(`Status: ${status}`);
                 console.log('CloudFront-Cache-Status:', headers['x-cache'] || 'N/A');
                 console.log('Nitro-Cache-Status:', headers['x-nitro-cache'] || 'N/A');
                 console.log('x-nitro-disabled:', headers['x-nitro-disabled'] || 'N/A');
-                console.log('TTFB:', ttfb);
 
                 let timestamp = new Date().toISOString();
                 const data = {
@@ -46,9 +31,7 @@ async function warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheM
                     status,
                     cloudFrontCacheStatus: headers['x-cache'] || 'N/A',
                     nitroCacheStatus: headers['x-nitro-cache'] || 'N/A',
-                    nitroDisabled: headers['x-nitro-disabled'] || 'N/A',
-                    ttfb,
-                    dnsLookupTime
+                    nitroDisabled: headers['x-nitro-disabled'] || 'N/A'
                 };
 
                 csvData.push(data);
@@ -69,12 +52,14 @@ async function warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheM
         });
 
         try {
-            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 }); //timeout 1 minute
+            // Ensure that page has fully navigated before doing any evaluations
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
         } catch (e) {
             // Check if the data is captured, then don't throw an error
             console.log('dataCaptured:', dataCaptured);
             if (!dataCaptured) {
                 console.log(`Error warming up URL: ${url}, Error: ${e.message}`);
+                if (page) await page.close();
                 throw e;
             }
         }
@@ -95,6 +80,7 @@ async function warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheM
         }
     }
 }
+
 
 async function processUrlsSequentially(urls, logData, isGlobal = 0) {
     let browser;
@@ -135,18 +121,11 @@ async function processUrlsSequentially(urls, logData, isGlobal = 0) {
             await sendLogToSlack(logData);
             await delay(120000); // Delay between chunks to avoid rate-limiting
         }
-        let filename ="";
-        if(isGlobal === 1){
-            filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_global_first_warmup_report`;
-        }else if(isGlobal === 2){
-            // sync sitemap
-            filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_syncSitemap_first_warmup_report`;
-        }else{
-            filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_first_warmup_report`;
-        }
+
+        let filename =`${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_first_warmup_report`;
         generateCSV(filename, csvData);
         logData.push(`Completed the first warmup process for all URLs.`);
-        //share the url of csv generated in the public folder
+        // Share the URL of CSV generated in the public folder
         logData.push(`CSV file generated: ${process.env.WEB_URL}:${process.env.PORT}/public/reports/${filename}.csv`);
         await sendLogToSlack(logData);
 
@@ -165,28 +144,21 @@ async function processUrlsSequentially(urls, logData, isGlobal = 0) {
                 for (const url of chunk) {
                     cnt++;
                     console.log(`Retrying Nitro Cache Miss URL #${cnt}: ${url}`);
-                    try{
+                    try {
                         await warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData);
-                    }catch(e){
+                    } catch (e) {
                         console.log(`Error warming up URL: ${url}, Error: ${e.message}`);
                         logData.push(`Error warming up URL: ${url}, Error: ${e.message}`);
-                    };
+                    }
                     await delay(100);
                 }
                 logData.push(`Processed ${cnt} URLs`);
                 await sendLogToSlack(logData);
-                //wait for 2 minutes
+                // Wait for 2 minutes
                 await delay(120000); // 2 minutes
             }
-            let filename ="";
-            if(isGlobal === 1){
-                filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_global_nitro_warmup_report`;
-            }else if(isGlobal === 2){
-                // sync sitemap
-                filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_syncSitemap_nitro_warmup_report`;
-            }else{
-                filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_nitro_warmup_report`;
-            }
+
+            let filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_nitro_warmup_report`;
             generateCSV(filename, csvData);
             logData.push(`Completed the nitro warmup process for all URLs.`);
             logData.push(`CSV file generated: ${process.env.WEB_URL}:${process.env.PORT}/public/reports/${filename}.csv`);
@@ -208,28 +180,21 @@ async function processUrlsSequentially(urls, logData, isGlobal = 0) {
                 for (const url of chunk) {
                     cnt++;
                     console.log(`Retrying CloudFront Cache Miss URL #${cnt}: ${url}`);
-                    try{
+                    try {
                         await warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData);
-                    }catch(e){
+                    } catch (e) {
                         console.log(`Error warming up URL: ${url}, Error: ${e.message}`);
                         logData.push(`Error warming up URL: ${url}, Error: ${e.message}`);
-                    };
+                    }
                     await delay(100);
                 }
                 logData.push(`Processed ${cnt} URLs`);
                 await sendLogToSlack(logData);
-                //wait for 2 minutes
+                // Wait for 2 minutes
                 await delay(120000); // 2 minutes
             }
-            let filename ="";
-            if(isGlobal === 1){
-                filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_global_cloudfront_warmup_report`;
-            }else if(isGlobal === 2){
-                // sync sitemap
-                filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_syncSitemap_cloudfront_warmup_report`;
-            }else{
-                filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_cloudfront_warmup_report`;
-            }
+
+            let filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_cloudfront_warmup_report`;
             generateCSV(filename, csvData);
             logData.push(`Completed the cloudfront warmup process for all URLs.`);
             logData.push(`CSV file generated: ${process.env.WEB_URL}:${process.env.PORT}/public/reports/${filename}.csv`);
@@ -242,8 +207,7 @@ async function processUrlsSequentially(urls, logData, isGlobal = 0) {
         console.error(`Error processing the URLs: ${error.message}`);
         logData.push(`Error processing the URLs: ${error.message}`);
     } finally {
-        if (page) await page.close();
-        if (browser) await browser.close();
+        if (browser) await browser.close();  // Always ensure the browser is closed
     }
 }
 

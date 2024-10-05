@@ -15,7 +15,7 @@ function generateCSV(filename, data) {
     const filePath = path.join(dirPath, `${filename}.csv`);
 
     // CSV Headers (adjust based on your data)
-    const headers = ['Timestamp', 'URL', 'Status', 'CloudFront-Cache-Status', 'Nitro-Cache-Status', 'x-Nitro-Disabled', 'TTFB', 'DNS-Lookup'];
+    const headers = ['Timestamp', 'URL', 'Status', 'CloudFront-Cache-Status', 'Nitro-Cache-Status', 'x-Nitro-Disabled'];
 
     // If data is an array of objects, map it to an array of arrays
     const rows = data.map(row => {
@@ -30,9 +30,7 @@ function generateCSV(filename, data) {
                 row.status || '',
                 row.cloudFrontCacheStatus || '',
                 row.nitroCacheStatus || '',
-                row.nitroDisabled || '',
-                row.ttfb || '',
-                row.dnsLookupTime || ''
+                row.nitroDisabled || ''
             ];
         } else {
             // If the row is not an array or object, throw an error
