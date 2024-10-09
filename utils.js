@@ -3,7 +3,7 @@ const axios = require('axios');
 const { chunkArray, delay, sendLogToSlack, generateCSV } = require('./helpers');
 
 async function warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData, retryCount = 0) {
-    const maxRetries = 3; // Set the maximum number of retries
+    const maxRetries = 2; // Set the maximum number of retries
     let page;
     try {
         let ttfb = 0;
@@ -45,17 +45,24 @@ async function warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheM
                         nitroCacheMiss.push(url);
                     }
                 }
-
-                // Close the page as soon as we get the required data
-                await page.close();
             }
         });
 
         try {
-            // Ensure that page has fully navigated before doing any evaluations
-            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+            // Ensure that the page has a maximum timeout of 20 seconds
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+
+            // Wait for 10 seconds to check if DOM content is loaded
+            await page.waitForTimeout(10000);
+
+            // If DOM is not rendered after 10 seconds, close the page and go for retry
+            if (!dataCaptured) {
+                console.log(`DOM not rendered within 10 seconds for URL: ${url}`);
+                await page.close();
+                throw new Error('DOM not rendered in time');
+            }
         } catch (e) {
-            // Check if the data is captured, then don't throw an error
+            // Check if data is captured, if not, proceed with retry
             console.log('dataCaptured:', dataCaptured);
             if (!dataCaptured) {
                 console.log(`Error warming up URL: ${url}, Error: ${e.message}`);
@@ -64,7 +71,7 @@ async function warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheM
             }
         }
 
-        // Close the page if not closed already (in case no data is captured)
+        // Ensure the page is closed after all checks, but don't close it prematurely
         if (!dataCaptured && page) {
             await page.close();
         }
@@ -80,6 +87,7 @@ async function warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheM
         }
     }
 }
+
 
 
 async function processUrlsSequentially(urls, logData, isGlobal = 0) {
