@@ -2,14 +2,10 @@ const { chromium } = require('playwright');
 const axios = require('axios');
 const { chunkArray, delay, sendLogToSlack, generateCSV } = require('./helpers');
 
-async function warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData, retryCount = 0) {
-    const maxRetries = 2; // Set the maximum number of retries
+async function warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData) {
     let page;
     try {
-        let ttfb = 0;
-        let dnsLookupTime = 0;
         let dataCaptured = false; // Flag to track if necessary data is captured
-
         // Open a new page for every URL
         page = await browser.newPage();
 
@@ -24,6 +20,7 @@ async function warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheM
                 console.log('Nitro-Cache-Status:', headers['x-nitro-cache'] || 'N/A');
                 console.log('x-nitro-disabled:', headers['x-nitro-disabled'] || 'N/A');
 
+                // Capture timestamp and status info
                 let timestamp = new Date().toISOString();
                 const data = {
                     timestamp,
@@ -34,9 +31,11 @@ async function warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheM
                     nitroDisabled: headers['x-nitro-disabled'] || 'N/A'
                 };
 
+                // Add to CSV data
                 csvData.push(data);
                 dataCaptured = true; // Set flag to true when data is captured
 
+                // Handle specific statuses or cache misses
                 if (status === 200 && !headers['x-nitro-disabled']) {
                     if (headers['x-cache'] === 'Miss from cloudfront') {
                         cloudFrontCacheMiss.push(url);
@@ -48,45 +47,31 @@ async function warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheM
             }
         });
 
-        try {
-            // Ensure that the page has a maximum timeout of 20 seconds
-            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+        // Attempt to visit the URL
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 10000 });
 
-            // Wait for 10 seconds to check if DOM content is loaded
-            await page.waitForTimeout(10000);
-
-            // If DOM is not rendered after 10 seconds, close the page and go for retry
-            if (!dataCaptured) {
-                console.log(`DOM not rendered within 10 seconds for URL: ${url}`);
-                await page.close();
-                throw new Error('DOM not rendered in time');
-            }
-        } catch (e) {
-            // Check if data is captured, if not, proceed with retry
-            console.log('dataCaptured:', dataCaptured);
-            if (!dataCaptured) {
-                console.log(`Error warming up URL: ${url}, Error: ${e.message}`);
-                if (page) await page.close();
-                throw e;
-            }
-        }
-
-        // Ensure the page is closed after all checks, but don't close it prematurely
-        if (!dataCaptured && page) {
-            await page.close();
+        // If no data was captured, it means a cache miss
+        if (!dataCaptured) {
+            cloudFrontCacheMiss.push(url);
+            nitroCacheMiss.push(url);
         }
 
     } catch (error) {
         logData.push(`Error warming up URL: ${url}, Error: ${error.message}`);
-        if (retryCount < maxRetries) {
-            console.log(`Retrying URL: ${url}, Attempt: ${retryCount + 1}`);
-            await warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData, retryCount + 1);
-        } else {
-            console.error(`Failed to warm up URL after ${maxRetries} attempts: ${url}`);
-            if (page) await page.close();
+        console.log("dataCaptured", dataCaptured);
+        if(!dataCaptured) {
+            cloudFrontCacheMiss.push(url);
+            nitroCacheMiss.push(url);
+        }
+    } finally {
+        // Ensure the page is closed after all checks
+        console.log(`Closing the page for URL: ${url}`);
+        if (page) {
+            await page.close();
         }
     }
 }
+
 
 
 
