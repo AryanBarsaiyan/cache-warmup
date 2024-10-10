@@ -48,7 +48,7 @@ async function warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheM
         });
 
         // Attempt to visit the URL
-        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 10000 });
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 }); // 20 seconds timeout
 
         // If no data was captured, it means a cache miss
         if (!dataCaptured) {
@@ -98,22 +98,66 @@ async function processUrlsSequentially(urls, logData, isGlobal = 0) {
         let cnt = 0;
         let csvData = [];
 
-        for (const chunk of urlChunks) {
-            for (const url of chunk) {
+
+
+        // for (const chunk of urlChunks) {
+        //     for (const url of chunk) {
+        //         cnt++;
+        //         console.log(`Processing URL #${cnt}: ${url}`);
+        //         try {
+        //             await warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData);
+        //         } catch (e) {
+        //             console.log(`Error warming up URL: ${url}, Error: ${e.message}`);
+        //             logData.push(`Error warming up URL: ${url}, Error: ${e.message}`);
+        //         }
+        //         await delay(100); // Adding delay to avoid overwhelming the browser
+        //     }
+        //     logData.push(`Processed ${cnt} URLs`);
+        //     await sendLogToSlack(logData);
+        //     await delay(120000); // Delay between chunks to avoid rate-limiting
+        // }
+
+        for(const chunk of urlChunks){
+            //split it into three threads
+            let thread1 = chunk.slice(0, chunk.length/3);
+            let thread2 = chunk.slice(chunk.length/3, 2*(chunk.length/3));
+            let thread3 = chunk.slice(2*(chunk.length/3), chunk.length);
+            let thread1Promise = [];
+            let thread2Promise = [];
+            let thread3Promise = [];
+            for(const url of thread1){
                 cnt++;
                 console.log(`Processing URL #${cnt}: ${url}`);
-                try {
-                    await warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData);
-                } catch (e) {
-                    console.log(`Error warming up URL: ${url}, Error: ${e.message}`);
-                    logData.push(`Error warming up URL: ${url}, Error: ${e.message}`);
-                }
+                thread1Promise.push(warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData));
+                await delay(500); // Adding delay to avoid overwhelming the browser
+            }
+            await Promise.all(thread1Promise);
+            logData.push(`Processed ${cnt} URLs`);
+            await sendLogToSlack(logData);
+            await delay(120000); // Delay between chunks to avoid rate-limiting
+            for(const url of thread2){
+                cnt++;
+                console.log(`Processing URL #${cnt}: ${url}`);
+                thread2Promise.push(warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData));
                 await delay(100); // Adding delay to avoid overwhelming the browser
             }
+            await Promise.all(thread2Promise);
+            logData.push(`Processed ${cnt} URLs`);
+            await sendLogToSlack(logData);
+            await delay(120000); // Delay between chunks to avoid rate-limiting
+            for(const url of thread3){
+                cnt++;
+                console.log(`Processing URL #${cnt}: ${url}`);
+                thread3Promise.push(warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData));
+                await delay(100); // Adding delay to avoid overwhelming the browser
+            }
+            await Promise.all(thread3Promise);
             logData.push(`Processed ${cnt} URLs`);
             await sendLogToSlack(logData);
             await delay(120000); // Delay between chunks to avoid rate-limiting
         }
+    
+
 
         let filename =`${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_first_warmup_report`;
         generateCSV(filename, csvData);
