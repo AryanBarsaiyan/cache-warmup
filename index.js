@@ -21,6 +21,20 @@ app.use(bodyParser.json());
 // Serve static files from the "public" folder
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
+app.post('/logData', async (req, res) => {
+
+    try {
+        console.log(req.body);
+
+        res.status(200).json({ message: 'Log data sent to Slack' });
+
+    } catch (error) {
+        console.error(`Error sending log data to Slack: ${error.message}`);
+        return res.status(500).json({ message: 'Internal Server Error' });
+    }
+}
+);
+
 app.get('/health', validateApiKey, (req, res) => {
     res.status(200).send('Healthy');
 });
