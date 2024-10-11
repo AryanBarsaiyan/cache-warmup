@@ -169,6 +169,7 @@ async function processPhase(phaseName, phaseNo, browser, isGlobal, needNetwork2 
     
     if(!isGlobal){
         logData.push("Waiting 5 min before processing...");
+        console.log("Waiting 5 min before processing...");
     }
     else if(phaseName==='nitro'){
         logData.push(`Waiting 30 min before processing...`);
