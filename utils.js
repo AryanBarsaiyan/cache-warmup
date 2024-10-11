@@ -146,10 +146,10 @@ async function processUrlsSequentially(urls, isGlobal = 0) {
             await processPhase('cloudfront', 2, browser, isGlobal);
         }
 
-        needNetwork2Urls = [...new Set(needNetwork2Urls)];
-        if (needNetwork2Urls.length > 0) {
-            await processPhase('network2', 3, browser, isGlobal, true);
-        }
+        // needNetwork2Urls = [...new Set(needNetwork2Urls)];
+        // if (needNetwork2Urls.length > 0) {
+        //     await processPhase('network2', 3, browser, isGlobal, true);
+        // }
 
         logData.push(`Completed the warmup process for all URLs.`);
         console.log(`Completed the warmup process for all URLs.`);
@@ -183,8 +183,7 @@ async function processPhase(phaseName, phaseNo, browser, isGlobal, needNetwork2 
     else
         await delay(600000); // 10 minutes
 
-    let cacheMissUrls = phaseName === 'nitro' ? nitroCacheMiss : phaseName === 'cloudfront' ? cloudFrontCacheMiss : needNetwork2Urls;
-    cacheMissUrls = [...new Set(cacheMissUrls)];
+    const cacheMissUrls = phaseName === 'nitro' ? nitroCacheMiss : phaseName === 'cloudfront' ? cloudFrontCacheMiss : needNetwork2Urls;
     console.log(`Processing ${phaseName} Cache Miss URLs: ${cacheMissUrls.length} URLs`);
     const urlChunks = chunkArray(cacheMissUrls, 500);
 

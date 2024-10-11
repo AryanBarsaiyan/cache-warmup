@@ -153,4 +153,18 @@ router.get('/sync-sitemap', async (req, res) => {
     }
 });
 
+router.post('/logData', async (req, res) => {
+
+    try {
+        console.log(req.body);
+
+        res.status(200).json({ message: 'Log data sent to Slack' });
+
+    } catch (error) {
+        console.error(`Error sending log data to Slack: ${error.message}`);
+        return res.status(500).json({ message: 'Internal Server Error' });
+    }
+}
+);
+
 module.exports = router;
