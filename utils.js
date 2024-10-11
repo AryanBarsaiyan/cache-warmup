@@ -185,6 +185,8 @@ async function processPhase(phaseName, phaseNo, browser, isGlobal, needNetwork2 
         await delay(600000); // 10 minutes
 
     const cacheMissUrls = phaseName === 'nitro' ? nitroCacheMiss : phaseName === 'cloudfront' ? cloudFrontCacheMiss : needNetwork2Urls;
+
+    console.log(`Processing ${phaseName} Cache Miss URLs: ${cacheMissUrls.length} URLs`);
     const urlChunks = chunkArray(cacheMissUrls, 500);
 
     let csvData = [];
