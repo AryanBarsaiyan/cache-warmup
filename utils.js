@@ -120,6 +120,7 @@ async function processUrlsSequentially(urls, isGlobal = 0) {
         let cnt = 0;
 
         for (const chunk of urlChunks) {
+            cnt+=chunk.length;
             await processChunk(0, chunk, browser);
             logData.push(`Processed ${cnt} URLs`);
             await sendLogToSlack(logData);
@@ -130,6 +131,11 @@ async function processUrlsSequentially(urls, isGlobal = 0) {
         generateCSV(filename, csvData);
         logData.push(`Completed the first warmup phase. CSV: ${process.env.WEB_URL}:${process.env.PORT}/public/reports/${filename}.csv`);
         await sendLogToSlack(logData);
+
+        // console.log the number of urls in each phase
+        console.log(`Number of URLs in nitroCacheMiss: ${nitroCacheMiss.length}`);
+        console.log(`Number of URLs in cloudFrontCacheMiss: ${cloudFrontCacheMiss.length}`);
+        console.log(`Number of URLs in needNetwork2Urls: ${needNetwork2Urls.length}`);
 
         nitroCacheMiss = [...new Set(nitroCacheMiss)];
         if (nitroCacheMiss.length > 0) {
@@ -159,12 +165,20 @@ async function processUrlsSequentially(urls, isGlobal = 0) {
 
 async function processPhase(phaseName, phaseNo, browser, isGlobal, needNetwork2 = false) {
     logData.push(`Processing ${phaseName} Cache Miss URLs: ${phaseName === 'nitro' ? nitroCacheMiss.length : cloudFrontCacheMiss.length} URLs`);
+    console.log(`Processing ${phaseName} Cache Miss URLs: ${phaseName === 'nitro' ? nitroCacheMiss.length : cloudFrontCacheMiss.length} URLs`);
     
-    if(phaseName==nitro)
+    if(phaseName==nitro){
         logData,push(`Waiting 30 min before processing...`);
-    else
+        console.log(`Waiting 30 min before processing...`);
+    }
+    else{
         logData.push(`Waiting 10 min before processing...`);
+        console.log(`Waiting 10 min before processing...`);
+    }
+
+
     await sendLogToSlack(logData);
+
     if(phaseName==nitro)
         await delay(1800000); // 30 minutes
     else
@@ -174,8 +188,11 @@ async function processPhase(phaseName, phaseNo, browser, isGlobal, needNetwork2 
     const urlChunks = chunkArray(cacheMissUrls, 500);
 
     let csvData = [];
+    let cnt = 0;
     for (const chunk of urlChunks) {
+        cnt+=chunk.length
         await processChunk(phaseNo, chunk, browser, needNetwork2);
+        logData.push(`Processed ${cnt} URLs`);
         await sendLogToSlack(logData);
         await delay(120000); // 2 minutes
     }
