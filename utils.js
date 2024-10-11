@@ -123,7 +123,7 @@ async function processUrlsSequentially(urls, isGlobal = 0) {
             await processChunk(0, chunk, browser);
             logData.push(`Processed ${cnt} URLs`);
             await sendLogToSlack(logData);
-            await delay(120000); // 2 minutes
+            // await delay(120000); // 2 minutes
         }
 
         const filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_${isGlobal ? 'global_' : ''}first_phase_warmup_report`;
@@ -167,7 +167,7 @@ async function processPhase(phaseName, phaseNo, browser, isGlobal, needNetwork2 
     console.log(`Processing ${phaseName} Cache Miss URLs: ${phaseName === 'nitro' ? nitroCacheMiss.length : cloudFrontCacheMiss.length} URLs`);
     
     if(phaseName==='nitro'){
-        logData,push(`Waiting 30 min before processing...`);
+        logData.push(`Waiting 30 min before processing...`);
         console.log(`Waiting 30 min before processing...`);
     }
     else{
