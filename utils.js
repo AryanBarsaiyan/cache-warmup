@@ -123,7 +123,7 @@ async function processUrlsSequentially(urls, isGlobal = 0) {
             await processChunk(0, chunk, browser);
             logData.push(`Processed ${cnt} URLs`);
             await sendLogToSlack(logData);
-            // await delay(120000); // 2 minutes
+            await delay(120000); // 2 minutes
         }
 
         const filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_${isGlobal ? 'global_' : ''}first_phase_warmup_report`;
@@ -159,9 +159,16 @@ async function processUrlsSequentially(urls, isGlobal = 0) {
 
 async function processPhase(phaseName, phaseNo, browser, isGlobal, needNetwork2 = false) {
     logData.push(`Processing ${phaseName} Cache Miss URLs: ${phaseName === 'nitro' ? nitroCacheMiss.length : cloudFrontCacheMiss.length} URLs`);
-    logData.push(`Waiting 15 minutes before processing...`);
+    
+    if(phaseName==nitro)
+        logData,push(`Waiting 30 min before processing...`);
+    else
+        logData.push(`Waiting 10 min before processing...`);
     await sendLogToSlack(logData);
-    await delay(900000); // 15 minutes
+    if(phaseName==nitro)
+        await delay(1800000); // 30 minutes
+    else
+        await delay(600000); // 10 minutes
 
     const cacheMissUrls = phaseName === 'nitro' ? nitroCacheMiss : phaseName === 'cloudfront' ? cloudFrontCacheMiss : needNetwork2Urls;
     const urlChunks = chunkArray(cacheMissUrls, 500);
@@ -170,7 +177,7 @@ async function processPhase(phaseName, phaseNo, browser, isGlobal, needNetwork2 
     for (const chunk of urlChunks) {
         await processChunk(phaseNo, chunk, browser, needNetwork2);
         await sendLogToSlack(logData);
-        // await delay(120000); // 2 minutes
+        await delay(120000); // 2 minutes
     }
 
     const filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_${isGlobal ? 'global_' : ''}${phaseName}_warmup_report`;
