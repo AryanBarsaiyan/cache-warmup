@@ -167,7 +167,7 @@ async function processPhase(phaseName, phaseNo, browser, isGlobal, needNetwork2 
     logData.push(`Processing ${phaseName} Cache Miss URLs: ${phaseName === 'nitro' ? nitroCacheMiss.length : cloudFrontCacheMiss.length} URLs`);
     console.log(`Processing ${phaseName} Cache Miss URLs: ${phaseName === 'nitro' ? nitroCacheMiss.length : cloudFrontCacheMiss.length} URLs`);
     
-    if(phaseName==nitro){
+    if(phaseName==='nitro'){
         logData,push(`Waiting 30 min before processing...`);
         console.log(`Waiting 30 min before processing...`);
     }
