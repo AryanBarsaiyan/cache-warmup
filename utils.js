@@ -43,7 +43,7 @@ async function warmupUrl(phaseNo, browser, url, needNetwork2 = false) {
                 if (status === 200 && !headers['x-nitro-disabled']) {
                     if (headers['x-cache'] === 'Miss from cloudfront') {
                         cloudFrontCacheMiss.push(url);
-                        if (phaseNo === 2) needNetwork2Urls.push(url);
+                        needNetwork2Urls.push(url);
                     }
                     if (headers['x-nitro-cache'] === 'MISS' || !headers['x-nitro-cache']) {
                         nitroCacheMiss.push(url);
@@ -141,8 +141,8 @@ async function processUrlsSequentially(urls, isGlobal = 0) {
             await processPhase('nitro', 1, browser, isGlobal);
         }
 
-        needNetwork2Urls = [];
         cloudFrontCacheMiss = [...new Set(cloudFrontCacheMiss)];
+        needNetwork2Urls = [];
         if (cloudFrontCacheMiss.length > 0) {
             await processPhase('cloudfront', 2, browser, isGlobal);
         }
@@ -167,7 +167,10 @@ async function processPhase(phaseName, phaseNo, browser, isGlobal, needNetwork2 
     logData.push(`Processing ${phaseName} Cache Miss URLs: ${phaseName === 'nitro' ? nitroCacheMiss.length : cloudFrontCacheMiss.length} URLs`);
     console.log(`Processing ${phaseName} Cache Miss URLs: ${phaseName === 'nitro' ? nitroCacheMiss.length : cloudFrontCacheMiss.length} URLs`);
     
-    if(phaseName==='nitro'){
+    if(!isGlobal){
+        logData.push("Waiting 5 min before processing...");
+    }
+    else if(phaseName==='nitro'){
         logData.push(`Waiting 30 min before processing...`);
         console.log(`Waiting 30 min before processing...`);
     }
@@ -179,7 +182,9 @@ async function processPhase(phaseName, phaseNo, browser, isGlobal, needNetwork2 
 
     await sendLogToSlack(logData);
 
-    if(phaseName==='nitro')
+    if(!isGlobal)
+        await delay(300000); // 5 minutes
+    else if(phaseName==='nitro')
         await delay(1800000); // 30 minutes
     else
         await delay(600000); // 10 minutes
