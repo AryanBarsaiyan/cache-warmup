@@ -30,14 +30,14 @@ router.post('/global', async (req, res) => {
         if(req.body.sitemapUrl) {
             mainSitemapUrl = req.body.sitemapUrl;
         }
-        // let uniqueUrlsData= require('../unique_urls.json');
-        // let uniqueUrls = uniqueUrlsData.unique_urls;
+        let uniqueUrlsData= require('../unique_urls.json');
+        let uniqueUrls = uniqueUrlsData.unique_urls;
         console.log(`Processing the global URLs from the sitemap: ${mainSitemapUrl}`);
 
         await fetchAllSitemaps(mainSitemapUrl);
         let sitemap_urls = require('../sitemap_urls.json');
         let urls = sitemap_urls.url;
-        // urls = urls.concat(uniqueUrls);
+        urls = urls.concat(uniqueUrls);
         urls = [...new Set(urls)];
         res.status(200).json({ message: `We've successfully retrieved ${urls.length} URLs from the sitemap ${mainSitemapUrl}. Processing is underway and is expected to take approximately 8 hours.` });
         await processUrlsSequentially(urls, 1);
