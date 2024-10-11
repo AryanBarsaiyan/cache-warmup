@@ -161,8 +161,7 @@ async function processPhase(phaseName, phaseNo, browser, isGlobal, needNetwork2 
     logData.push(`Processing ${phaseName} Cache Miss URLs: ${phaseName === 'nitro' ? nitroCacheMiss.length : cloudFrontCacheMiss.length} URLs`);
     logData.push(`Waiting 15 minutes before processing...`);
     await sendLogToSlack(logData);
-
-    // await delay(900000); // 15 minutes
+    await delay(900000); // 15 minutes
 
     const cacheMissUrls = phaseName === 'nitro' ? nitroCacheMiss : phaseName === 'cloudfront' ? cloudFrontCacheMiss : needNetwork2Urls;
     const urlChunks = chunkArray(cacheMissUrls, 500);
