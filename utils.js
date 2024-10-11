@@ -179,7 +179,7 @@ async function processPhase(phaseName, phaseNo, browser, isGlobal, needNetwork2 
 
     await sendLogToSlack(logData);
 
-    if(phaseName==nitro)
+    if(phaseName==='nitro')
         await delay(1800000); // 30 minutes
     else
         await delay(600000); // 10 minutes
