@@ -183,8 +183,8 @@ async function processPhase(phaseName, phaseNo, browser, isGlobal, needNetwork2 
     else
         await delay(600000); // 10 minutes
 
-    const cacheMissUrls = phaseName === 'nitro' ? nitroCacheMiss : phaseName === 'cloudfront' ? cloudFrontCacheMiss : needNetwork2Urls;
-
+    let cacheMissUrls = phaseName === 'nitro' ? nitroCacheMiss : phaseName === 'cloudfront' ? cloudFrontCacheMiss : needNetwork2Urls;
+    cacheMissUrls = [...new Set(cacheMissUrls)];
     console.log(`Processing ${phaseName} Cache Miss URLs: ${cacheMissUrls.length} URLs`);
     const urlChunks = chunkArray(cacheMissUrls, 500);
 
@@ -198,6 +198,8 @@ async function processPhase(phaseName, phaseNo, browser, isGlobal, needNetwork2 
         await sendLogToSlack(logData);
         await delay(120000); // 2 minutes
     }
+    if(phaseName==='nitro')
+     needNetwork2Urls = [];
 
     const filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_${isGlobal ? 'global_' : ''}${phaseName}_warmup_report`;
     generateCSV(filename, csvData);
