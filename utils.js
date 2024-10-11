@@ -53,7 +53,7 @@ async function warmupUrl(phaseNo, browser, url, needNetwork2 = false) {
         });
 
         const timeout = needNetwork2 ? 60000 : 20000;
-        const waitUntil = needNetwork2 ? 'networkidle2' : 'domcontentloaded';
+        const waitUntil = needNetwork2 ? 'networkidle' : 'domcontentloaded';
 
         await page.goto(url, { waitUntil, timeout });
 
@@ -123,7 +123,7 @@ async function processUrlsSequentially(urls, isGlobal = 0) {
             await processChunk(0, chunk, browser);
             logData.push(`Processed ${cnt} URLs`);
             await sendLogToSlack(logData);
-            // await delay(120000); // 2 minutes
+            await delay(120000); // 2 minutes
         }
 
         const filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_${isGlobal ? 'global_' : ''}first_phase_warmup_report`;
@@ -141,15 +141,16 @@ async function processUrlsSequentially(urls, isGlobal = 0) {
             await processPhase('nitro', 1, browser, isGlobal);
         }
 
+        needNetwork2Urls = [];
         cloudFrontCacheMiss = [...new Set(cloudFrontCacheMiss)];
         if (cloudFrontCacheMiss.length > 0) {
             await processPhase('cloudfront', 2, browser, isGlobal);
         }
 
-        // needNetwork2Urls = [...new Set(needNetwork2Urls)];
-        // if (needNetwork2Urls.length > 0) {
-        //     await processPhase('network2', 3, browser, isGlobal, true);
-        // }
+        needNetwork2Urls = [...new Set(needNetwork2Urls)];
+        if (needNetwork2Urls.length > 0) {
+            await processPhase('network2', 3, browser, isGlobal, true);
+        }
 
         logData.push(`Completed the warmup process for all URLs.`);
         console.log(`Completed the warmup process for all URLs.`);
