@@ -13,11 +13,9 @@ router.post('/page', async (req, res) => {
             return res.status(400).json({ message: 'An array of URLs is required' });
         }
 
-        // Log data storage
-        const logData = [];
         //wants to process the urls after request is completed
         res.status(200).json({ message: `URLs are being processed. Total URLs: ${urls.length}` });
-        await processUrlsSequentially(urls, logData);
+        await processUrlsSequentially(urls);
     } catch (error) {
         console.error(`Error processing the URLs: ${error.message}`);
         return res.status(500).json({ message: 'Internal Server Error' });
@@ -33,18 +31,17 @@ router.post('/global', async (req, res) => {
         if(req.body.sitemapUrl) {
             mainSitemapUrl = req.body.sitemapUrl;
         }
-        let uniqueUrlsData= require('../unique_urls.json');
-        let uniqueUrls = uniqueUrlsData.unique_urls;
-        console.log(`Processing the global URLs from the sitemap: ${mainSitemapUrl}`);
+        // let uniqueUrlsData= require('../unique_urls.json');
+        // let uniqueUrls = uniqueUrlsData.unique_urls;
+        // console.log(`Processing the global URLs from the sitemap: ${mainSitemapUrl}`);
 
         await fetchAllSitemaps(mainSitemapUrl);
         let sitemap_urls = require('../sitemap_urls.json');
         let urls = sitemap_urls.url;
-        urls = urls.concat(uniqueUrls);
+        // urls = urls.concat(uniqueUrls);
         urls = [...new Set(urls)];
         res.status(200).json({ message: `We've successfully retrieved ${urls.length} URLs from the sitemap ${mainSitemapUrl}. Processing is underway and is expected to take approximately 8 hours.` });
-        await processUrlsSequentially(urls, logData, 1);
-        await sendLogToSlack(logData);
+        await processUrlsSequentially(urls, 1);
     } catch (error) {
         console.error(`Error processing the global URLs: ${error.message}`);
         return res.status(500).json({ message: 'Internal Server Error' });
@@ -64,7 +61,7 @@ router.get('/unique_urls', async (req, res) => {
         const logData = [];
         //wants to process the urls after request is completed
         res.status(200).json({ message: `Unique URLs are being processed. Total URLs: ${urls.length}` });
-        await processUrlsSequentially(urls, logData);
+        await processUrlsSequentially(urls);
     } catch (error) {
         console.error(`Error processing the unique URLs: ${error.message}`);
         return res.status(500).json({ message: 'Internal Server Error' });

@@ -2,28 +2,26 @@ const { chromium } = require('playwright');
 const axios = require('axios');
 const { chunkArray, delay, sendLogToSlack, generateCSV } = require('./helpers');
 
-async function warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData) {
+let nitroCacheMiss = [];
+let cloudFrontCacheMiss = [];
+let csvData = [];
+let needNetwork2Urls = [];
+let logData = [];
+
+async function warmupUrl(phaseNo, browser, url, needNetwork2 = false) {
     let page;
+    let dataCaptured = false;
+    
     try {
-        let dataCaptured = false; // Flag to track if necessary data is captured
-        // Open a new page for every URL
         page = await browser.newPage();
 
-        // Capture headers from the page response
         page.on('response', async (response) => {
             if (response.url() === url && response.request().resourceType() === 'document') {
                 const headers = response.headers();
                 const status = response.status();
 
-                console.log(`Status: ${status}`);
-                console.log('CloudFront-Cache-Status:', headers['x-cache'] || 'N/A');
-                console.log('Nitro-Cache-Status:', headers['x-nitro-cache'] || 'N/A');
-                console.log('x-nitro-disabled:', headers['x-nitro-disabled'] || 'N/A');
-
-                // Capture timestamp and status info
-                let timestamp = new Date().toISOString();
                 const data = {
-                    timestamp,
+                    timestamp: new Date().toISOString(),
                     url,
                     status,
                     cloudFrontCacheStatus: headers['x-cache'] || 'N/A',
@@ -31,14 +29,21 @@ async function warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheM
                     nitroDisabled: headers['x-nitro-disabled'] || 'N/A'
                 };
 
-                // Add to CSV data
-                csvData.push(data);
-                dataCaptured = true; // Set flag to true when data is captured
+                console.log(`
+                    Status: ${status}
+                    CloudFront Cache Status: ${data.cloudFrontCacheStatus}
+                    Nitro Cache Status: ${data.nitroCacheStatus}
+                    Nitro Disabled: ${data.nitroDisabled}
+                `);
 
-                // Handle specific statuses or cache misses
+
+                csvData.push(data);
+                dataCaptured = true;
+
                 if (status === 200 && !headers['x-nitro-disabled']) {
                     if (headers['x-cache'] === 'Miss from cloudfront') {
                         cloudFrontCacheMiss.push(url);
+                        if (phaseNo === 2) needNetwork2Urls.push(url);
                     }
                     if (headers['x-nitro-cache'] === 'MISS' || !headers['x-nitro-cache']) {
                         nitroCacheMiss.push(url);
@@ -47,10 +52,11 @@ async function warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheM
             }
         });
 
-        // Attempt to visit the URL
-        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 }); // 20 seconds timeout
+        const timeout = needNetwork2 ? 60000 : 20000;
+        const waitUntil = needNetwork2 ? 'networkidle2' : 'domcontentloaded';
 
-        // If no data was captured, it means a cache miss
+        await page.goto(url, { waitUntil, timeout });
+
         if (!dataCaptured) {
             cloudFrontCacheMiss.push(url);
             nitroCacheMiss.push(url);
@@ -58,194 +64,120 @@ async function warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheM
 
     } catch (error) {
         logData.push(`Error warming up URL: ${url}, Error: ${error.message}`);
-        console.log("dataCaptured", dataCaptured);
-        if(!dataCaptured) {
+        if (!dataCaptured) {
             cloudFrontCacheMiss.push(url);
             nitroCacheMiss.push(url);
         }
     } finally {
-        // Ensure the page is closed after all checks
-        console.log(`Closing the page for URL: ${url}`);
-        if (page) {
-            await page.close();
-        }
+        console.log('closing the page.')
+        if (page) await page.close();
     }
 }
 
+async function processChunk(phaseNo, chunk, browser, needNetwork2 = false) {
+    //divide the chunk in three parts
+    let chunk1 = chunk.slice(0, chunk.length / 3);
+    let chunk2 = chunk.slice(chunk.length / 3, 2 * (chunk.length / 3));
+    let chunk3 = chunk.slice(2 * (chunk.length / 3), chunk.length);
+    let cnt=0;
+    // Helper function to process URLs sequentially in each chunk
+    const processSequentially = async (chunkPart) => {
+        for (const url of chunkPart) {
+            cnt++;
+            if(phaseNo == 0) 
+            console.log(`Processing URL #${cnt}: ${url}`);
+            else if (phaseNo == 1)
+                console.log(`Processing URL #${cnt} for nitrocache: ${url}`);
+            else if (phaseNo == 2)
+                console.log(`Processing URL #${cnt} for cloudfront: ${url}`);
+            else
+                console.log(`Processing URL #${cnt} for network2: ${url}`);
+            await warmupUrl(phaseNo, browser, url, needNetwork2);
+            await delay(100); // Adding delay to avoid overwhelming the browser
+        }
+    };
 
+    // Run the three chunks in parallel
+    await Promise.all([
+        processSequentially(chunk1),
+        processSequentially(chunk2),
+        processSequentially(chunk3)
+    ]);
 
+    return;
+}
 
-async function processUrlsSequentially(urls, logData, isGlobal = 0) {
+async function processUrlsSequentially(urls, isGlobal = 0) {
     let browser;
     try {
-        browser = await chromium.launch({
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-gpu',
-            ],
-            headless: true
-        });
+        browser = await chromium.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu'], headless: true });
 
-        console.log(`Total URLs: ${urls.length}`);
         logData.push(`Total URLs: ${urls.length}`);
         logData.push(`Starting the warmup process for all URLs.`);
         await sendLogToSlack(logData);
 
         let urlChunks = chunkArray(urls, 500);
-        let nitroCacheMiss = [];
-        let cloudFrontCacheMiss = [];
         let cnt = 0;
-        let csvData = [];
 
-
-
-        // for (const chunk of urlChunks) {
-        //     for (const url of chunk) {
-        //         cnt++;
-        //         console.log(`Processing URL #${cnt}: ${url}`);
-        //         try {
-        //             await warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData);
-        //         } catch (e) {
-        //             console.log(`Error warming up URL: ${url}, Error: ${e.message}`);
-        //             logData.push(`Error warming up URL: ${url}, Error: ${e.message}`);
-        //         }
-        //         await delay(100); // Adding delay to avoid overwhelming the browser
-        //     }
-        //     logData.push(`Processed ${cnt} URLs`);
-        //     await sendLogToSlack(logData);
-        //     await delay(120000); // Delay between chunks to avoid rate-limiting
-        // }
-
-        for(const chunk of urlChunks){
-            //split it into three threads
-            let thread1 = chunk.slice(0, chunk.length/3);
-            let thread2 = chunk.slice(chunk.length/3, 2*(chunk.length/3));
-            let thread3 = chunk.slice(2*(chunk.length/3), chunk.length);
-            let thread1Promise = [];
-            let thread2Promise = [];
-            let thread3Promise = [];
-            for(const url of thread1){
-                cnt++;
-                console.log(`Processing URL #${cnt}: ${url}`);
-                thread1Promise.push(warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData));
-                await delay(500); // Adding delay to avoid overwhelming the browser
-            }
-            await Promise.all(thread1Promise);
+        for (const chunk of urlChunks) {
+            await processChunk(0, chunk, browser);
             logData.push(`Processed ${cnt} URLs`);
             await sendLogToSlack(logData);
-            await delay(120000); // Delay between chunks to avoid rate-limiting
-            for(const url of thread2){
-                cnt++;
-                console.log(`Processing URL #${cnt}: ${url}`);
-                thread2Promise.push(warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData));
-                await delay(100); // Adding delay to avoid overwhelming the browser
-            }
-            await Promise.all(thread2Promise);
-            logData.push(`Processed ${cnt} URLs`);
-            await sendLogToSlack(logData);
-            await delay(120000); // Delay between chunks to avoid rate-limiting
-            for(const url of thread3){
-                cnt++;
-                console.log(`Processing URL #${cnt}: ${url}`);
-                thread3Promise.push(warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData));
-                await delay(100); // Adding delay to avoid overwhelming the browser
-            }
-            await Promise.all(thread3Promise);
-            logData.push(`Processed ${cnt} URLs`);
-            await sendLogToSlack(logData);
-            await delay(120000); // Delay between chunks to avoid rate-limiting
+            // await delay(120000); // 2 minutes
         }
-    
 
-
-        let filename =`${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_first_warmup_report`;
+        const filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_${isGlobal ? 'global_' : ''}first_phase_warmup_report`;
         generateCSV(filename, csvData);
-        logData.push(`Completed the first warmup process for all URLs.`);
-        // Share the URL of CSV generated in the public folder
-        logData.push(`CSV file generated: ${process.env.WEB_URL}:${process.env.PORT}/public/reports/${filename}.csv`);
+        logData.push(`Completed the first warmup phase. CSV: ${process.env.WEB_URL}:${process.env.PORT}/public/reports/${filename}.csv`);
         await sendLogToSlack(logData);
 
         nitroCacheMiss = [...new Set(nitroCacheMiss)];
         if (nitroCacheMiss.length > 0) {
-            console.log(`Processing Nitro Cache Miss URLs: ${nitroCacheMiss.length} URLs`);
-            logData.push(`Processing Nitro Cache Miss URLs: ${nitroCacheMiss.length} URLs`);
-            logData.push(`Waiting for 15 minutes before processing Nitro Cache Miss URLs`);
-            await sendLogToSlack(logData);
-            await delay(900000); // 15 minutes
-
-            urlChunks = chunkArray(nitroCacheMiss, 500);
-            cnt = 0;
-            csvData = [];
-            for (const chunk of urlChunks) {
-                for (const url of chunk) {
-                    cnt++;
-                    console.log(`Retrying Nitro Cache Miss URL #${cnt}: ${url}`);
-                    try {
-                        await warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData);
-                    } catch (e) {
-                        console.log(`Error warming up URL: ${url}, Error: ${e.message}`);
-                        logData.push(`Error warming up URL: ${url}, Error: ${e.message}`);
-                    }
-                    await delay(100);
-                }
-                logData.push(`Processed ${cnt} URLs`);
-                await sendLogToSlack(logData);
-                // Wait for 2 minutes
-                await delay(120000); // 2 minutes
-            }
-
-            let filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_nitro_warmup_report`;
-            generateCSV(filename, csvData);
-            logData.push(`Completed the nitro warmup process for all URLs.`);
-            logData.push(`CSV file generated: ${process.env.WEB_URL}:${process.env.PORT}/public/reports/${filename}.csv`);
-            await sendLogToSlack(logData);
+            await processPhase('nitro', 1, browser, isGlobal);
         }
 
         cloudFrontCacheMiss = [...new Set(cloudFrontCacheMiss)];
         if (cloudFrontCacheMiss.length > 0) {
-            console.log(`Processing CloudFront Cache Miss URLs: ${cloudFrontCacheMiss.length} URLs`);
-            logData.push(`Processing CloudFront Cache Miss URLs: ${cloudFrontCacheMiss.length} URLs`);
-            logData.push(`Waiting for 15 minutes before processing CloudFront Cache Miss URLs`);
-            await sendLogToSlack(logData);
-            await delay(900000); // 15 minutes
+            await processPhase('cloudfront', 2, browser, isGlobal);
+        }
 
-            urlChunks = chunkArray(cloudFrontCacheMiss, 500);
-            cnt = 0;
-            csvData = [];
-            for (const chunk of urlChunks) {
-                for (const url of chunk) {
-                    cnt++;
-                    console.log(`Retrying CloudFront Cache Miss URL #${cnt}: ${url}`);
-                    try {
-                        await warmupUrl(browser, url, logData, nitroCacheMiss, cloudFrontCacheMiss, csvData);
-                    } catch (e) {
-                        console.log(`Error warming up URL: ${url}, Error: ${e.message}`);
-                        logData.push(`Error warming up URL: ${url}, Error: ${e.message}`);
-                    }
-                    await delay(100);
-                }
-                logData.push(`Processed ${cnt} URLs`);
-                await sendLogToSlack(logData);
-                // Wait for 2 minutes
-                await delay(120000); // 2 minutes
-            }
-
-            let filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_cloudfront_warmup_report`;
-            generateCSV(filename, csvData);
-            logData.push(`Completed the cloudfront warmup process for all URLs.`);
-            logData.push(`CSV file generated: ${process.env.WEB_URL}:${process.env.PORT}/public/reports/${filename}.csv`);
-            await sendLogToSlack(logData);
+        needNetwork2Urls = [...new Set(needNetwork2Urls)];
+        if (needNetwork2Urls.length > 0) {
+            await processPhase('network2', 3, browser, isGlobal, true);
         }
 
         logData.push(`Completed the warmup process for all URLs.`);
+        console.log(`Completed the warmup process for all URLs.`);
+        await sendLogToSlack(logData);
 
     } catch (error) {
-        console.error(`Error processing the URLs: ${error.message}`);
         logData.push(`Error processing the URLs: ${error.message}`);
     } finally {
-        if (browser) await browser.close();  // Always ensure the browser is closed
+        if (browser) await browser.close();
     }
+}
+
+async function processPhase(phaseName, phaseNo, browser, isGlobal, needNetwork2 = false) {
+    logData.push(`Processing ${phaseName} Cache Miss URLs: ${phaseName === 'nitro' ? nitroCacheMiss.length : cloudFrontCacheMiss.length} URLs`);
+    logData.push(`Waiting 15 minutes before processing...`);
+    await sendLogToSlack(logData);
+
+    // await delay(900000); // 15 minutes
+
+    const cacheMissUrls = phaseName === 'nitro' ? nitroCacheMiss : phaseName === 'cloudfront' ? cloudFrontCacheMiss : needNetwork2Urls;
+    const urlChunks = chunkArray(cacheMissUrls, 500);
+
+    let csvData = [];
+    for (const chunk of urlChunks) {
+        await processChunk(phaseNo, chunk, browser, needNetwork2);
+        await sendLogToSlack(logData);
+        // await delay(120000); // 2 minutes
+    }
+
+    const filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_${isGlobal ? 'global_' : ''}${phaseName}_warmup_report`;
+    generateCSV(filename, csvData);
+    logData.push(`Completed the ${phaseName} warmup process. CSV: ${process.env.WEB_URL}:${process.env.PORT}/public/reports/${filename}.csv`);
+    await sendLogToSlack(logData);
 }
 
 module.exports = { processUrlsSequentially };
