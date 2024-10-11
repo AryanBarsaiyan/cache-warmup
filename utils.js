@@ -118,13 +118,12 @@ async function processUrlsSequentially(urls, isGlobal = 0) {
 
         let urlChunks = chunkArray(urls, 500);
         let cnt = 0;
-
         for (const chunk of urlChunks) {
             cnt+=chunk.length;
             await processChunk(0, chunk, browser);
             logData.push(`Processed ${cnt} URLs`);
             await sendLogToSlack(logData);
-            await delay(120000); // 2 minutes
+            // await delay(120000); // 2 minutes
         }
 
         const filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_${isGlobal ? 'global_' : ''}first_phase_warmup_report`;
