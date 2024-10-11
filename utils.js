@@ -188,7 +188,8 @@ async function processPhase(phaseName, phaseNo, browser, isGlobal, needNetwork2 
     console.log(`Processing ${phaseName} Cache Miss URLs: ${cacheMissUrls.length} URLs`);
     const urlChunks = chunkArray(cacheMissUrls, 500);
 
-    let csvData = [];
+    //empty the csvData
+    csvData = [];
     let cnt = 0;
     for (const chunk of urlChunks) {
         cnt+=chunk.length
