@@ -149,7 +149,7 @@ async function processUrls(urls, isGlobal = 0) {
             await processPhase('network2', 3, browser, isGlobal, true);
         }
 
-        logData.push(`Completed the warmup process for all URLs.`);
+        logData.push(`✅ Completed the warmup process for all URLs.`);
         console.log(`Completed the warmup process for all URLs.`);
         await sendLogToSlack(logData);
 
