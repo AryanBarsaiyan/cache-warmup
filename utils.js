@@ -53,7 +53,7 @@ async function warmupUrl(phaseNo, browser, url, needNetwork2 = false) {
         });
 
         const timeout = needNetwork2 ? 60000 : 20000;
-        const waitUntil = needNetwork2 ? 'networkidle2' : 'domcontentloaded';
+        const waitUntil = needNetwork2 ? 'networkidle' : 'domcontentloaded';
 
         await page.goto(url, { waitUntil, timeout });
 
@@ -123,7 +123,7 @@ async function processUrls(urls, isGlobal = 0) {
             await processChunk(0, chunk, browser);
             logData.push(`Processed ${cnt} URLs`);
             await sendLogToSlack(logData);
-            // await delay(120000); // 2 minutes
+            await delay(120000); // 2 minutes
         }
 
         const filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_${isGlobal ? 'global_' : ''}first_phase_warmup_report`;
@@ -142,6 +142,7 @@ async function processUrls(urls, isGlobal = 0) {
         }
 
         cloudFrontCacheMiss = [...new Set(cloudFrontCacheMiss)];
+        needNetwork2Urls = [];
         if (cloudFrontCacheMiss.length > 0) {
             await processPhase('cloudfront', 2, browser, isGlobal);
         }
@@ -166,7 +167,11 @@ async function processPhase(phaseName, phaseNo, browser, isGlobal, needNetwork2 
     logData.push(`Processing ${phaseName} Cache Miss URLs: ${phaseName === 'nitro' ? nitroCacheMiss.length : cloudFrontCacheMiss.length} URLs`);
     console.log(`Processing ${phaseName} Cache Miss URLs: ${phaseName === 'nitro' ? nitroCacheMiss.length : cloudFrontCacheMiss.length} URLs`);
     
-    if(phaseName==='nitro'){
+    if(!isGlobal){
+        logData.push("Waiting 5 min before processing...");
+        console.log("Waiting 5 min before processing...");
+    }
+    else if(phaseName==='nitro'){
         logData.push(`Waiting 30 min before processing...`);
         console.log(`Waiting 30 min before processing...`);
     }
@@ -178,7 +183,9 @@ async function processPhase(phaseName, phaseNo, browser, isGlobal, needNetwork2 
 
     await sendLogToSlack(logData);
 
-    if(phaseName==='nitro')
+    if(!isGlobal)
+        await delay(300000); // 5 minutes
+    else if(phaseName==='nitro')
         await delay(1800000); // 30 minutes
     else
         await delay(600000); // 10 minutes
