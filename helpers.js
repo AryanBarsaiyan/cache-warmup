@@ -59,8 +59,8 @@ function chunkArray(arr, chunkSize) {
 }
 
 // Function to introduce delay between URL processing
-// const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, 0));
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+// const delay = (ms) => new Promise(resolve => setTimeout(resolve, 0));
 
 // Function to send log data to Slack
 async function sendLogToSlack(logData) {
@@ -69,7 +69,7 @@ async function sendLogToSlack(logData) {
 
     for (const chunk of logChunks) {
         try {
-            const payload = { text: `Cache Warmer \n\n${chunk.join('\n')}` };
+            const payload = { text: `*Cache Warmer* \n\n${chunk.join('\n')}` };
             await axios.post(SLACK_WEBHOOK_URL, payload);
             logData.length = 0;
         } catch (error) {
