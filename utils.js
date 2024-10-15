@@ -148,6 +148,7 @@ async function processUrls(urls, isGlobal = 0) {
 
         cloudFrontCacheMiss = [...new Set(cloudFrontCacheMiss)];
 
+        nitroCacheMiss = [];
         network2Urls = [];
         if (cloudFrontCacheMiss.length > 0) {
             errorLogData.push(`⚠️ ${isGlobal ? 'Global ' : ''} CloudFront Cache Warmer Error Log`);
@@ -155,6 +156,7 @@ async function processUrls(urls, isGlobal = 0) {
             await sendErrorLogToSlack(errorLogData);
         }
 
+        cloudFrontCacheMiss = [];
         network2Urls = [...new Set(network2Urls)];
         if (network2Urls.length > 0) {
             errorLogData.push(`⚠️${isGlobal ? 'Global ' : ''}  Network2 Cache Warmer Error Log`);
