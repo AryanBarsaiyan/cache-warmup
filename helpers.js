@@ -59,7 +59,8 @@ function chunkArray(arr, chunkSize) {
 }
 
 // Function to introduce delay between URL processing
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+// const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, 0));
 
 // Function to send log data to Slack
 async function sendLogToSlack(logData) {

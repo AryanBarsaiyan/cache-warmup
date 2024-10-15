@@ -93,7 +93,6 @@ async function processChunk(phaseNo, chunk, browser, needNetwork2 = false) {
             else
                 console.log(`Processing URL #${cnt} for network2: ${url}`);
             await warmupUrl(phaseNo, browser, url, needNetwork2);
-            await delay(100); // Adding delay to avoid overwhelming the browser
         }
     };
 
@@ -123,7 +122,7 @@ async function processUrls(urls, isGlobal = 0) {
             await processChunk(0, chunk, browser);
             logData.push(`Processed ${cnt} URLs`);
             await sendLogToSlack(logData);
-            await delay(120000); // 2 minutes
+            await delay(120000);
         }
 
         const filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_${isGlobal ? 'global_' : ''}first_phase_warmup_report`;
@@ -141,16 +140,28 @@ async function processUrls(urls, isGlobal = 0) {
             await processPhase('nitro', 1, browser, isGlobal);
         }
 
+        // console.log the number of urls in each phase
+        console.log(`Number of URLs in nitroCacheMiss: ${nitroCacheMiss.length}`);
+        console.log(`Number of URLs in cloudFrontCacheMiss: ${cloudFrontCacheMiss.length}`);
+        console.log(`Number of URLs in network2Urls: ${network2Urls.length}`);
+
         cloudFrontCacheMiss = [...new Set(cloudFrontCacheMiss)];
-        needNetwork2Urls = [];
+
+        network2Urls = [];
         if (cloudFrontCacheMiss.length > 0) {
             await processPhase('cloudfront', 2, browser, isGlobal);
         }
 
-        // network2Urls = [...new Set(network2Urls)];
-        // if (network2Urls.length > 0) {
-        //     await processPhase('network2', 3, browser, isGlobal, true);
-        // }
+        // console.log the number of urls in each phase
+        console.log(`Number of URLs in nitroCacheMiss: ${nitroCacheMiss.length}`);
+        console.log(`Number of URLs in cloudFrontCacheMiss: ${cloudFrontCacheMiss.length}`);
+        console.log(`Number of URLs in network2Urls: ${network2Urls.length}`);
+
+
+        network2Urls = [...new Set(network2Urls)];
+        if (network2Urls.length > 0) {
+            await processPhase('network2', 3, browser, isGlobal, true);
+        }
 
         logData.push(`Completed the warmup process for all URLs.`);
         console.log(`Completed the warmup process for all URLs.`);
@@ -204,9 +215,6 @@ async function processPhase(phaseName, phaseNo, browser, isGlobal, needNetwork2 
         await sendLogToSlack(logData);
         await delay(120000); // 2 minutes
     }
-    if(phaseName==='nitro')
-     network2Urls = [];
-
     const filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_${isGlobal ? 'global_' : ''}${phaseName}_warmup_report`;
     generateCSV(filename, csvData);
     logData.push(`Completed the ${phaseName} warmup process. CSV: ${process.env.WEB_URL}:${process.env.PORT}/public/reports/${filename}.csv`);

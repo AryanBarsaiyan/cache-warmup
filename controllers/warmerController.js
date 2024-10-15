@@ -116,7 +116,7 @@ exports.syncSitemap = async (req, res) => {
 
         res.status(200).json({ message: `New URLs added to the sitemap: ${differenceArray.length}, we are processing them now` });
         const logData = [];
-        await processUrls(differenceArray, 2);
+        await processUrls(differenceArray);
         await sendLogToSlack(logData);
 
     } catch (error) {
