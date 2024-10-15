@@ -78,6 +78,22 @@ async function sendLogToSlack(logData) {
     }
 }
 
+//Function to send the error log to slack
+async function sendErrorLogToSlack(logData) {
+    const SLACK_WEBHOOK_URL = process.env.ERROR_SLACK_WEBHOOK_URL;
+    const logChunks = chunkArray(logData, 20);
+
+    for (const chunk of logChunks) {
+        try {
+            const payload = { text: `Cache Warmer \n\n${chunk.join('\n')}` };
+            await axios.post(SLACK_WEBHOOK_URL, payload);
+            logData.length = 0;
+        } catch (error) {
+            console.error('Error sending logs to Slack:', error.message);
+        }
+    }
+}
+
 const deleteOldFiles = (directory) => {
     const oneMonth = process.env.EXPIRE_TIME || 30 * 24 * 60 * 60 * 1000; // Default to 30 days
     const now = Date.now();
@@ -124,4 +140,4 @@ const deleteOldFiles = (directory) => {
 };
 
 
-module.exports = { chunkArray, delay, sendLogToSlack,generateCSV,deleteOldFiles };
+module.exports = { chunkArray, delay, sendLogToSlack,generateCSV,deleteOldFiles, sendErrorLogToSlack };

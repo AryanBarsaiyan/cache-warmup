@@ -1,12 +1,13 @@
 const { chromium } = require('playwright');
 const axios = require('axios');
-const { chunkArray, delay, sendLogToSlack, generateCSV } = require('./helpers');
+const { chunkArray, delay, sendLogToSlack, generateCSV, sendErrorLogToSlack } = require('./helpers');
 
 let nitroCacheMiss = [];
 let cloudFrontCacheMiss = [];
 let csvData = [];
 let network2Urls = [];
 let logData = [];
+let errorLogData = [];
 
 async function warmupUrl(phaseNo, browser, url, needNetwork2 = false) {
     let page;
@@ -61,9 +62,9 @@ async function warmupUrl(phaseNo, browser, url, needNetwork2 = false) {
             cloudFrontCacheMiss.push(url);
             nitroCacheMiss.push(url);
         }
-
+        
     } catch (error) {
-        logData.push(`Error warming up URL: ${url}, Error: ${error.message}`);
+        errorLogData.push(`Error warming up URL: ${url}\n ❌ Error: ${error.message}`);
         if (!dataCaptured) {
             cloudFrontCacheMiss.push(url);
             nitroCacheMiss.push(url);
@@ -117,6 +118,8 @@ async function processUrls(urls, isGlobal = 0) {
 
         let urlChunks = chunkArray(urls, 500);
         let cnt = 0;
+        
+        errorLogData.push(`⚠️ ${isGlobal ? 'Global ' : ''} Warmup Error Log`);
         for (const chunk of urlChunks) {
             cnt+=chunk.length;
             await processChunk(0, chunk, browser);
@@ -124,6 +127,8 @@ async function processUrls(urls, isGlobal = 0) {
             await sendLogToSlack(logData);
             await delay(120000);
         }
+
+        sendErrorLogToSlack(errorLogData);
 
         const filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_${isGlobal ? 'global_' : ''}first_phase_warmup_report`;
         generateCSV(filename, csvData);
@@ -133,7 +138,9 @@ async function processUrls(urls, isGlobal = 0) {
 
         nitroCacheMiss = [...new Set(nitroCacheMiss)];
         if (nitroCacheMiss.length > 0) {
+            errorLogData.push(`⚠️ ${isGlobal ? 'Global ' : ''} Nitro Cache Warmer Error Log`);
             await processPhase('nitro', 1, browser, isGlobal);
+            sendErrorLogToSlack(errorLogData);
         }
 
 
@@ -141,20 +148,27 @@ async function processUrls(urls, isGlobal = 0) {
 
         network2Urls = [];
         if (cloudFrontCacheMiss.length > 0) {
+            errorLogData.push(`⚠️${isGlobal ? 'Global ' : ''} Cloudfront Cache Warmer Error Log`);
             await processPhase('cloudfront', 2, browser, isGlobal);
+            sendErrorLogToSlack(errorLogData);
         }
 
         network2Urls = [...new Set(network2Urls)];
         if (network2Urls.length > 0) {
+            errorLogData.push(`⚠️${isGlobal ? 'Global ' : ''}  Network2 Cache Warmer Error Log`);
             await processPhase('network2', 3, browser, isGlobal, true);
+            sendErrorLogToSlack(errorLogData);
         }
 
         logData.push(`✅ Completed the warmup process for all URLs.`);
+        errorLogData.push(`✅ ${isGlobal ? 'Global -> ' : ''} Completed the warmup process for all URLs.`);
         console.log(`Completed the warmup process for all URLs.`);
         await sendLogToSlack(logData);
+        await sendErrorLogToSlack(errorLogData);
 
     } catch (error) {
-        logData.push(`Error processing the URLs: ${error.message}`);
+        errorLogData.push(`Error processing the URLs: ${error.message}`);
+        await sendLogToSlack(logData);
     } finally {
         if (browser) await browser.close();
     }
