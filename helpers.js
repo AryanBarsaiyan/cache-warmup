@@ -69,7 +69,7 @@ async function sendLogToSlack(logData) {
 
     for (const chunk of logChunks) {
         try {
-            const payload = { text: `URL Warm-up Logs:\n${chunk.join('\n')}` };
+            const payload = { text: `Cache Warmer \n${chunk.join('\n')}` };
             await axios.post(SLACK_WEBHOOK_URL, payload);
             logData.length = 0;
         } catch (error) {

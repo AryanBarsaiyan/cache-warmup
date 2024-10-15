@@ -110,9 +110,9 @@ async function processUrls(urls, isGlobal = 0) {
     let browser;
     try {
         browser = await chromium.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu'], headless: true });
-
-        logData.push(`Total URLs: ${urls.length}`);
-        logData.push(`Starting the warmup process for all URLs.`);
+        logData.push(`🚀 *Warmup Process Started* 🚀`);
+        logData.push(`🌐 *Total URLs:* ${urls.length}`);
+        logData.push(`♨️ Starting the warmup process for all URLs.`);
         await sendLogToSlack(logData);
 
         let urlChunks = chunkArray(urls, 500);
@@ -120,30 +120,22 @@ async function processUrls(urls, isGlobal = 0) {
         for (const chunk of urlChunks) {
             cnt+=chunk.length;
             await processChunk(0, chunk, browser);
-            logData.push(`Processed ${cnt} URLs`);
+            logData.push(`🛠️ Processed ${cnt} URLs`);
             await sendLogToSlack(logData);
             await delay(120000);
         }
 
         const filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_${isGlobal ? 'global_' : ''}first_phase_warmup_report`;
         generateCSV(filename, csvData);
-        logData.push(`Completed the first warmup phase. CSV: ${process.env.WEB_URL}:${process.env.PORT}/public/reports/${filename}.csv`);
+        logData.push(`📄 Completed the first warmup phase. CSV: ${process.env.WEB_URL}:${process.env.PORT}/public/reports/${filename}.csv`);
         await sendLogToSlack(logData);
 
-        // console.log the number of urls in each phase
-        console.log(`Number of URLs in nitroCacheMiss: ${nitroCacheMiss.length}`);
-        console.log(`Number of URLs in cloudFrontCacheMiss: ${cloudFrontCacheMiss.length}`);
-        console.log(`Number of URLs in network2Urls: ${network2Urls.length}`);
 
         nitroCacheMiss = [...new Set(nitroCacheMiss)];
         if (nitroCacheMiss.length > 0) {
             await processPhase('nitro', 1, browser, isGlobal);
         }
 
-        // console.log the number of urls in each phase
-        console.log(`Number of URLs in nitroCacheMiss: ${nitroCacheMiss.length}`);
-        console.log(`Number of URLs in cloudFrontCacheMiss: ${cloudFrontCacheMiss.length}`);
-        console.log(`Number of URLs in network2Urls: ${network2Urls.length}`);
 
         cloudFrontCacheMiss = [...new Set(cloudFrontCacheMiss)];
 
@@ -151,12 +143,6 @@ async function processUrls(urls, isGlobal = 0) {
         if (cloudFrontCacheMiss.length > 0) {
             await processPhase('cloudfront', 2, browser, isGlobal);
         }
-
-        // console.log the number of urls in each phase
-        console.log(`Number of URLs in nitroCacheMiss: ${nitroCacheMiss.length}`);
-        console.log(`Number of URLs in cloudFrontCacheMiss: ${cloudFrontCacheMiss.length}`);
-        console.log(`Number of URLs in network2Urls: ${network2Urls.length}`);
-
 
         network2Urls = [...new Set(network2Urls)];
         if (network2Urls.length > 0) {
@@ -175,19 +161,19 @@ async function processUrls(urls, isGlobal = 0) {
 }
 
 async function processPhase(phaseName, phaseNo, browser, isGlobal, needNetwork2 = false) {
-    logData.push(`Processing ${phaseName} Cache Miss URLs: ${phaseName === 'nitro' ? nitroCacheMiss.length : cloudFrontCacheMiss.length} URLs`);
-    console.log(`Processing ${phaseName} Cache Miss URLs: ${phaseName === 'nitro' ? nitroCacheMiss.length : cloudFrontCacheMiss.length} URLs`);
+    logData.push(`🌀 Processing ${phaseName} Cache Miss URLs: ${phaseName === 'nitro' ? nitroCacheMiss.length : phaseName === 'cloudfront' ? cloudFrontCacheMiss.length : network2Urls.length} URLs`);
+    console.log(` Processing ${phaseName} Cache Miss URLs: ${phaseName === 'nitro' ? nitroCacheMiss.length : phaseName === 'cloudfront' ? cloudFrontCacheMiss.length : network2Urls.length} URLs`);
     
     if(!isGlobal){
-        logData.push("Waiting 5 min before processing...");
+        logData.push("⏳ Waiting 5 min before processing...");
         console.log("Waiting 5 min before processing...");
     }
     else if(phaseName==='nitro'){
-        logData.push(`Waiting 30 min before processing...`);
-        console.log(`Waiting 30 min before processing...`);
+        logData.push(`⏳ Waiting 1 hr before processing...`);
+        console.log(`Waiting 1 hr before processing...`);
     }
     else{
-        logData.push(`Waiting 10 min before processing...`);
+        logData.push(`⏳ Waiting 10 min before processing...`);
         console.log(`Waiting 10 min before processing...`);
     }
 
@@ -197,12 +183,12 @@ async function processPhase(phaseName, phaseNo, browser, isGlobal, needNetwork2 
     if(!isGlobal)
         await delay(300000); // 5 minutes
     else if(phaseName==='nitro')
-        await delay(1800000); // 30 minutes
+        await delay(3600000); // 1 hr
     else
         await delay(600000); // 10 minutes
 
     const cacheMissUrls = phaseName === 'nitro' ? nitroCacheMiss : phaseName === 'cloudfront' ? cloudFrontCacheMiss : network2Urls;
-    console.log(`Processing ${phaseName} Cache Miss URLs: ${cacheMissUrls.length} URLs`);
+    console.log(` Processing ${phaseName} Cache Miss URLs: ${cacheMissUrls.length} URLs`);
     const urlChunks = chunkArray(cacheMissUrls, 500);
 
     //empty the csvData
@@ -211,13 +197,13 @@ async function processPhase(phaseName, phaseNo, browser, isGlobal, needNetwork2 
     for (const chunk of urlChunks) {
         cnt+=chunk.length
         await processChunk(phaseNo, chunk, browser, needNetwork2);
-        logData.push(`Processed ${cnt} URLs`);
+        logData.push(`🛠️ Processed ${cnt} URLs`);
         await sendLogToSlack(logData);
         await delay(120000); // 2 minutes
     }
     const filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_${isGlobal ? 'global_' : ''}${phaseName}_warmup_report`;
     generateCSV(filename, csvData);
-    logData.push(`Completed the ${phaseName} warmup process. CSV: ${process.env.WEB_URL}:${process.env.PORT}/public/reports/${filename}.csv`);
+    logData.push(`📄 Completed the ${phaseName} warmup process. CSV: ${process.env.WEB_URL}:${process.env.PORT}/public/reports/${filename}.csv`);
     await sendLogToSlack(logData);
 }
 
