@@ -5,7 +5,7 @@ const { chunkArray, delay, sendLogToSlack, generateCSV } = require('./helpers');
 let nitroCacheMiss = [];
 let cloudFrontCacheMiss = [];
 let csvData = [];
-let needNetwork2Urls = [];
+let network2Urls = [];
 let logData = [];
 
 async function warmupUrl(phaseNo, browser, url, needNetwork2 = false) {
@@ -43,7 +43,7 @@ async function warmupUrl(phaseNo, browser, url, needNetwork2 = false) {
                 if (status === 200 && !headers['x-nitro-disabled']) {
                     if (headers['x-cache'] === 'Miss from cloudfront') {
                         cloudFrontCacheMiss.push(url);
-                        if (phaseNo === 2) needNetwork2Urls.push(url);
+                        if (phaseNo === 2) network2Urls.push(url);
                     }
                     if (headers['x-nitro-cache'] === 'MISS' || !headers['x-nitro-cache']) {
                         nitroCacheMiss.push(url);
@@ -107,7 +107,7 @@ async function processChunk(phaseNo, chunk, browser, needNetwork2 = false) {
     return;
 }
 
-async function processUrlsSequentially(urls, isGlobal = 0) {
+async function processUrls(urls, isGlobal = 0) {
     let browser;
     try {
         browser = await chromium.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu'], headless: true });
@@ -134,7 +134,7 @@ async function processUrlsSequentially(urls, isGlobal = 0) {
         // console.log the number of urls in each phase
         console.log(`Number of URLs in nitroCacheMiss: ${nitroCacheMiss.length}`);
         console.log(`Number of URLs in cloudFrontCacheMiss: ${cloudFrontCacheMiss.length}`);
-        console.log(`Number of URLs in needNetwork2Urls: ${needNetwork2Urls.length}`);
+        console.log(`Number of URLs in network2Urls: ${network2Urls.length}`);
 
         nitroCacheMiss = [...new Set(nitroCacheMiss)];
         if (nitroCacheMiss.length > 0) {
@@ -146,8 +146,8 @@ async function processUrlsSequentially(urls, isGlobal = 0) {
             await processPhase('cloudfront', 2, browser, isGlobal);
         }
 
-        // needNetwork2Urls = [...new Set(needNetwork2Urls)];
-        // if (needNetwork2Urls.length > 0) {
+        // network2Urls = [...new Set(network2Urls)];
+        // if (network2Urls.length > 0) {
         //     await processPhase('network2', 3, browser, isGlobal, true);
         // }
 
@@ -183,7 +183,7 @@ async function processPhase(phaseName, phaseNo, browser, isGlobal, needNetwork2 
     else
         await delay(600000); // 10 minutes
 
-    const cacheMissUrls = phaseName === 'nitro' ? nitroCacheMiss : phaseName === 'cloudfront' ? cloudFrontCacheMiss : needNetwork2Urls;
+    const cacheMissUrls = phaseName === 'nitro' ? nitroCacheMiss : phaseName === 'cloudfront' ? cloudFrontCacheMiss : network2Urls;
     console.log(`Processing ${phaseName} Cache Miss URLs: ${cacheMissUrls.length} URLs`);
     const urlChunks = chunkArray(cacheMissUrls, 500);
 
@@ -198,7 +198,7 @@ async function processPhase(phaseName, phaseNo, browser, isGlobal, needNetwork2 
         await delay(120000); // 2 minutes
     }
     if(phaseName==='nitro')
-     needNetwork2Urls = [];
+     network2Urls = [];
 
     const filename = `${new Date().toISOString().replace(/:/g, '-').split('.')[0]}_${isGlobal ? 'global_' : ''}${phaseName}_warmup_report`;
     generateCSV(filename, csvData);
@@ -206,4 +206,4 @@ async function processPhase(phaseName, phaseNo, browser, isGlobal, needNetwork2 
     await sendLogToSlack(logData);
 }
 
-module.exports = { processUrlsSequentially };
+module.exports = { processUrls };

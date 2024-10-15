@@ -3,7 +3,8 @@ const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
 const path = require('path'); 
 const warmupRoutes = require('./routes/warmupRoutes');
-const { validateApiKey } = require('./middleware');
+const { validateApiKey, validateGlobalAccess } = require('./middleware');
+const urlController = require('./controllers/warmerController');
 const cors = require('cors');
 
 
@@ -40,6 +41,8 @@ app.get('/health', validateApiKey, (req, res) => {
 });
 
 // Routes
+app.post('/warmup/global', validateGlobalAccess, urlController.processGlobalUrls);
+
 app.use('/warmup', validateApiKey, warmupRoutes);
 
 // Root endpoint
