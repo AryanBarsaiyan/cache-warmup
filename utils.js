@@ -14,6 +14,12 @@ async function warmupUrl(phaseNo, browser, url, needNetwork2 = false) {
     let dataCaptured = false;
     
     try {
+        // Check if browser is still open
+        if (!browser.isConnected()) {
+            console.log('Browser is closed. Reopening browser.');
+            browser = await chromium.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu'], headless: true });
+        }
+        
         page = await browser.newPage();
 
         page.on('response', async (response) => {
@@ -93,7 +99,9 @@ async function processChunk(phaseNo, chunk, browser, needNetwork2 = false) {
                 console.log(`Processing URL #${cnt} for cloudfront: ${url}`);
             else
                 console.log(`Processing URL #${cnt} for network2: ${url}`);
+
             await warmupUrl(phaseNo, browser, url, needNetwork2);
+
         }
     };
 
