@@ -5,3 +5,4 @@ public/reports/*
 sitemap_urls.json
 pageDisableByNitroPack.json
 404_urls.json
+prod.env
